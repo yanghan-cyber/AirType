@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+models/
+build/
+dist/
+*.spec
+*.egg-info/
+.claude/
+test_audio.wav
+checkpoint_test.py
+debug_*.py

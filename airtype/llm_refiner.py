@@ -6,17 +6,17 @@ from .config import LLM_SYSTEM_PROMPT
 
 
 class _RefinementWorker(QThread):
-    """Background thread that calls the LLM API."""
-
-    finished = Signal(str)  # refined text
+    finished = Signal(str)
     error = Signal(str)
 
-    def __init__(self, text: str, api_base: str, api_key: str, model: str):
+    def __init__(self, text: str, api_base: str, api_key: str,
+                 model: str, system_prompt: str):
         super().__init__()
         self._text = text
         self._api_base = api_base
         self._api_key = api_key
         self._model = model
+        self._system_prompt = system_prompt
 
     def run(self):
         try:
@@ -26,7 +26,7 @@ class _RefinementWorker(QThread):
             response = client.chat.completions.create(
                 model=self._model,
                 messages=[
-                    {"role": "system", "content": LLM_SYSTEM_PROMPT},
+                    {"role": "system", "content": self._system_prompt},
                     {"role": "user", "content": self._text},
                 ],
                 temperature=0.0,
@@ -39,13 +39,6 @@ class _RefinementWorker(QThread):
 
 
 class LLMRefiner(QObject):
-    """Manages LLM refinement requests with conservative homophone correction.
-
-    Signals:
-        refined(str): Emitted with the refined text.
-        error(str): Emitted on API errors.
-    """
-
     refined = Signal(str)
     error = Signal(str)
 
@@ -55,25 +48,42 @@ class LLMRefiner(QObject):
         self._api_base = ""
         self._api_key = ""
         self._model = ""
+        self._system_prompt = LLM_SYSTEM_PROMPT
+        self._hotwords: list[str] = []
 
-    def configure(self, api_base: str, api_key: str, model: str):
-        """Update API configuration."""
+    def configure(self, api_base: str, api_key: str, model: str,
+                  system_prompt: str | None = None,
+                  hotwords: list[str] | None = None):
         self._api_base = api_base
         self._api_key = api_key
         self._model = model
+        if system_prompt is not None:
+            self._system_prompt = system_prompt
+        if hotwords is not None:
+            self._hotwords = list(hotwords)
+
+    def _build_prompt(self) -> str:
+        prompt = self._system_prompt or LLM_SYSTEM_PROMPT
+        if self._hotwords:
+            prompt += (
+                "\n\nPay special attention to these commonly misrecognized terms:\n"
+                + ", ".join(self._hotwords)
+            )
+        return prompt
 
     def refine(self, text: str):
-        """Submit text for refinement. Results come via the `refined` signal."""
         if not text.strip():
             self.refined.emit(text)
             return
 
-        # Cancel any in-flight request
         if self._worker is not None and self._worker.isRunning():
             self._worker.terminate()
             self._worker.wait()
 
-        self._worker = _RefinementWorker(text, self._api_base, self._api_key, self._model)
+        self._worker = _RefinementWorker(
+            text, self._api_base, self._api_key,
+            self._model, self._build_prompt(),
+        )
         self._worker.finished.connect(self.refined.emit)
         self._worker.error.connect(self.error.emit)
         self._worker.start()

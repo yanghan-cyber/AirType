@@ -12,7 +12,9 @@ from PySide6.QtCore import QObject, Signal
 
 from .config import SAMPLE_RATE
 
-# Try importing qwen_asr; handle gracefully if not installed
+import logging
+logging.getLogger("transformers").setLevel(logging.ERROR)
+
 try:
     from qwen_asr import Qwen3ASRModel
     QWEN3_AVAILABLE = True
@@ -40,11 +42,13 @@ class ASREngine(QObject):
         self._model_name = model_name
         self._language = language
         self._model = None
-        self._loaded = False
 
     @property
     def is_loaded(self) -> bool:
-        return self._loaded
+        return self._model is not None
+
+    def update_language(self, language: str):
+        self._language = language
 
     def load_model(self):
         """Load the ASR model in a background thread."""
@@ -61,7 +65,6 @@ class ASREngine(QObject):
                     device_map="cuda:0",
                     max_new_tokens=4096,
                 )
-                self._loaded = True
                 self.model_loaded.emit()
             except Exception as e:
                 self.error.emit(f"Failed to load ASR model: {e}")
@@ -74,11 +77,7 @@ class ASREngine(QObject):
         Args:
             pcm_bytes: Raw PCM data as 16-bit signed integers, 16kHz mono.
         """
-        if not self._loaded or self._model is None:
-            self.final_text.emit("")
-            return
-
-        if not pcm_bytes:
+        if not pcm_bytes or self._model is None:
             self.final_text.emit("")
             return
 

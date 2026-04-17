@@ -22,9 +22,13 @@ class AudioCapture(QObject):
         self._envelope = [0.0] * BAR_COUNT
         self._recording = False
         self._audio_buffer = bytearray()
+        self._rng = np.random.default_rng()
+        self._device = None
+
+    def update_device(self, device_name: str | None):
+        self._device = device_name if device_name else None
 
     def start(self):
-        """Start recording audio."""
         if self._recording:
             return
         self._recording = True
@@ -36,15 +40,12 @@ class AudioCapture(QObject):
             blocksize=CHUNK_SIZE,
             dtype="float32",
             callback=self._audio_callback,
+            device=self._device,
         )
         self._stream.start()
 
     def stop(self) -> bytes:
-        """Stop recording audio and return the captured PCM data.
-
-        Returns:
-            Raw PCM bytes (16-bit signed integers, 16kHz mono).
-        """
+        """Stop recording and return the captured PCM data (16-bit signed, 16kHz mono)."""
         if not self._recording:
             return b""
         self._recording = False
@@ -57,21 +58,11 @@ class AudioCapture(QObject):
         return pcm
 
     def _audio_callback(self, indata: np.ndarray, frames: int, time_info, status):
-        """sounddevice stream callback — runs on audio thread."""
         if not self._recording:
             return
 
-        # Accumulate raw audio for ASR
-        pcm = (indata * 32767).astype(np.int16).tobytes()
-        self._audio_buffer.extend(pcm)
+        self._audio_buffer.extend((indata * 32767).astype(np.int16).tobytes())
 
-        # Compute RMS
-        rms = np.sqrt(np.mean(indata ** 2))
-
-        # Normalize to 0-1 range — 0.08 threshold makes bars responsive to normal speech
-        level = min(1.0, rms / 0.05)
-
-        # Generate per-bar levels from the mono signal
         chunk_samples = indata[:, 0]
         n = len(chunk_samples)
         segment_size = max(1, n // BAR_COUNT)
@@ -82,19 +73,14 @@ class AudioCapture(QObject):
             seg_rms = np.sqrt(np.mean(seg ** 2)) if len(seg) > 0 else 0.0
             bar_levels.append(min(1.0, seg_rms / 0.05) * BAR_WEIGHTS[i])
 
-        # Apply attack/release envelope and jitter
-        rng = np.random.default_rng()
         for i in range(BAR_COUNT):
             target = bar_levels[i]
             if target > self._envelope[i]:
-                # Attack
                 self._envelope[i] += (target - self._envelope[i]) * ATTACK_FACTOR
             else:
-                # Release
                 self._envelope[i] += (target - self._envelope[i]) * RELEASE_FACTOR
 
-            # Jitter
-            jitter = rng.uniform(-JITTER_RANGE, JITTER_RANGE)
+            jitter = self._rng.uniform(-JITTER_RANGE, JITTER_RANGE)
             bar_levels[i] = max(0.0, min(1.0, self._envelope[i] + jitter))
 
         self.rms_updated.emit(bar_levels)

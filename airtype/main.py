@@ -77,6 +77,7 @@ class _HotkeyRelay(QObject):
     def __init__(self):
         super().__init__()
         self._active = False
+        self._paused = False
         self._target_keys: set[int] = {VK_LCONTROL, VK_LWIN}
         self._held_keys: set[int] = set()
         self._hook_handle = None
@@ -87,6 +88,9 @@ class _HotkeyRelay(QObject):
 
         @_HOOKPROC
         def _proc(nCode, wParam, lParam):
+            if relay._paused:
+                return user32.CallNextHookEx(relay._hook_handle, nCode, wParam, lParam)
+
             if nCode >= 0:
                 kb = ctypes.cast(
                     ctypes.c_void_p(lParam),
@@ -112,7 +116,7 @@ class _HotkeyRelay(QObject):
                         user32.keybd_event(held_vk, 0, KEYEVENTF_KEYUP, 0)
                     relay._held_keys.clear()
 
-                if vk in relay._target_keys and relay._held_keys:
+                if vk in relay._target_keys and relay._active:
                     return 1
 
             return user32.CallNextHookEx(relay._hook_handle, nCode, wParam, lParam)
@@ -123,10 +127,24 @@ class _HotkeyRelay(QObject):
         )
 
     def unhook(self):
+        for vk in list(self._held_keys):
+            user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+        self._held_keys.clear()
+        self._active = False
         if self._hook_handle:
             user32.UnhookWindowsHookEx(self._hook_handle)
             self._hook_handle = None
             self._cb = None
+
+    def pause(self):
+        self._paused = True
+        for vk in list(self._held_keys):
+            user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+        self._held_keys.clear()
+        self._active = False
+
+    def resume(self):
+        self._paused = False
 
     def update_keys(self, vk_codes: list[int]):
         self._target_keys = set(vk_codes)
@@ -148,9 +166,13 @@ class AirTypeApp:
         )
         self._llm = LLMRefiner()
         self._capsule = FloatingCapsule()
-        self._tray = TrayIcon(self._settings)
         self._hotkey_relay = _HotkeyRelay()
         self._watchdog = Watchdog()
+        self._tray = TrayIcon(
+            self._settings,
+            pause_hook=self._hotkey_relay.pause,
+            resume_hook=self._hotkey_relay.resume,
+        )
 
         self._recording = False
 

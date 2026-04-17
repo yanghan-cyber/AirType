@@ -26,6 +26,9 @@ SPRING_DURATION = 350
 TEXT_TRANSITION_DURATION = 250
 EXIT_DURATION = 220
 
+# Unicode injection
+UNICODE_CHAR_DELAY_MS = 10
+
 # Model directory (local path from ModelScope download)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 LOCAL_MODEL_DIR = _PROJECT_ROOT / "models" / "Qwen" / "Qwen3-ASR-1___7B"
@@ -75,24 +78,42 @@ _VK_NAMES = {
 }
 
 BLOCKED_HOTKEY_COMBOS = [
-    frozenset({VK_CONTROL, 0x43}),   # Ctrl+C
-    frozenset({VK_CONTROL, 0x56}),   # Ctrl+V
-    frozenset({VK_CONTROL, 0x58}),   # Ctrl+X
-    frozenset({VK_CONTROL, 0x5A}),   # Ctrl+Z
-    frozenset({VK_CONTROL, 0x41}),   # Ctrl+A
-    frozenset({VK_CONTROL, 0x53}),   # Ctrl+S
-    frozenset({VK_CONTROL, 0x57}),   # Ctrl+W
-    frozenset({VK_CONTROL, 0x51}),   # Ctrl+Q
-    frozenset({VK_CONTROL, 0x50}),   # Ctrl+P
-    frozenset({VK_CONTROL, 0x4E}),   # Ctrl+N
-    frozenset({VK_CONTROL, 0x4F}),   # Ctrl+O
-    frozenset({VK_CONTROL, 0x46}),   # Ctrl+F
-    frozenset({VK_CONTROL, 0x48}),   # Ctrl+H
-    frozenset({VK_CONTROL, 0x52}),   # Ctrl+R
-    frozenset({VK_CONTROL, 0x4C}),   # Ctrl+L
-    frozenset({VK_CONTROL, 0x54}),   # Ctrl+T
-    frozenset({0x12, VK_V}),         # Alt+V
-    frozenset({0x12, 0x73}),         # Alt+F4
+    frozenset({VK_LCONTROL, 0x43}),   # Ctrl+C
+    frozenset({VK_RCONTROL, 0x43}),
+    frozenset({VK_LCONTROL, 0x56}),   # Ctrl+V
+    frozenset({VK_RCONTROL, 0x56}),
+    frozenset({VK_LCONTROL, 0x58}),   # Ctrl+X
+    frozenset({VK_RCONTROL, 0x58}),
+    frozenset({VK_LCONTROL, 0x5A}),   # Ctrl+Z
+    frozenset({VK_RCONTROL, 0x5A}),
+    frozenset({VK_LCONTROL, 0x41}),   # Ctrl+A
+    frozenset({VK_RCONTROL, 0x41}),
+    frozenset({VK_LCONTROL, 0x53}),   # Ctrl+S
+    frozenset({VK_RCONTROL, 0x53}),
+    frozenset({VK_LCONTROL, 0x57}),   # Ctrl+W
+    frozenset({VK_RCONTROL, 0x57}),
+    frozenset({VK_LCONTROL, 0x51}),   # Ctrl+Q
+    frozenset({VK_RCONTROL, 0x51}),
+    frozenset({VK_LCONTROL, 0x50}),   # Ctrl+P
+    frozenset({VK_RCONTROL, 0x50}),
+    frozenset({VK_LCONTROL, 0x4E}),   # Ctrl+N
+    frozenset({VK_RCONTROL, 0x4E}),
+    frozenset({VK_LCONTROL, 0x4F}),   # Ctrl+O
+    frozenset({VK_RCONTROL, 0x4F}),
+    frozenset({VK_LCONTROL, 0x46}),   # Ctrl+F
+    frozenset({VK_RCONTROL, 0x46}),
+    frozenset({VK_LCONTROL, 0x48}),   # Ctrl+H
+    frozenset({VK_RCONTROL, 0x48}),
+    frozenset({VK_LCONTROL, 0x52}),   # Ctrl+R
+    frozenset({VK_RCONTROL, 0x52}),
+    frozenset({VK_LCONTROL, 0x4C}),   # Ctrl+L
+    frozenset({VK_RCONTROL, 0x4C}),
+    frozenset({VK_LCONTROL, 0x54}),   # Ctrl+T
+    frozenset({VK_RCONTROL, 0x54}),
+    frozenset({0xA4, VK_V}),          # Alt+V
+    frozenset({0xA5, VK_V}),
+    frozenset({0xA4, 0x73}),          # Alt+F4
+    frozenset({0xA5, 0x73}),
 ]
 
 

@@ -12,13 +12,10 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QWidget, QApplication, QHBoxLayout, QLabel
 
-from .config import (
-    BAR_COUNT, BAR_WEIGHTS, SPRING_DURATION, TEXT_TRANSITION_DURATION, EXIT_DURATION,
-)
+from .config import BAR_COUNT, SPRING_DURATION, TEXT_TRANSITION_DURATION, EXIT_DURATION
 
 
 def _disable_dwm_shadow(hwnd: int):
-    """Tell DWM not to draw any non-client area (shadows, rounded corners)."""
     try:
         dwmapi = ctypes.windll.dwmapi
         DWMWA_NCRENDERING_POLICY = 2
@@ -72,20 +69,17 @@ class WaveformWidget(QWidget):
             x = i * (bar_width + self.BAR_GAP)
             y = (self.height() - bar_height) / 2
 
-            # Gradient per bar: deep blue bottom → bright cyan top
             grad = QLinearGradient(x, y + bar_height, x, y)
             grad.setColorAt(0.0, QColor(60, 120, 220, 230))
             grad.setColorAt(0.5, QColor(70, 160, 240, 245))
             grad.setColorAt(1.0, QColor(120, 210, 255, 255))
 
-            # Glow behind bar (wider, transparent)
             glow = QColor(80, 170, 255, int(40 + level * 60))
             painter.setPen(Qt.NoPen)
             painter.setBrush(QBrush(glow))
             glow_rect = QRectF(x - 1, y - 1, bar_width + 2, bar_height + 2)
             painter.drawRoundedRect(glow_rect, (bar_width + 2) / 2, (bar_width + 2) / 2)
 
-            # Main bar
             painter.setBrush(QBrush(grad))
             rect = QRectF(x, y, bar_width, bar_height)
             painter.drawRoundedRect(rect, bar_width / 2, bar_width / 2)
@@ -118,7 +112,11 @@ class SpinnerWidget(QWidget):
     def stop(self):
         self._running = False
         self._timer.stop()
-        self.hide()
+        self._hide_safe()
+
+    def _hide_safe(self):
+        if self._running is False:
+            self.hide()
 
     def paintEvent(self, event):
         if not self._running:
@@ -160,6 +158,7 @@ class FloatingCapsule(QWidget):
         self._scale = 0.0
         self._opacity = 0.0
         self._processing = False
+        self._text = ""
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(10, 0, 10, 0)
@@ -197,6 +196,11 @@ class FloatingCapsule(QWidget):
             y = geo.height() - self.height() - 48 + geo.y()
             self.move(x, y)
 
+    def _calc_width(self, text: str) -> int:
+        text_width = self._label.fontMetrics().horizontalAdvance(text) + 16
+        label_w = min(480, max(60, text_width))
+        return min(self.MAX_WIDTH, max(self.MIN_WIDTH, label_w + 80))
+
     def get_scale(self):
         return self._scale
 
@@ -221,14 +225,13 @@ class FloatingCapsule(QWidget):
 
     @property
     def _base_width(self):
-        if not self._label.text() or self._processing:
+        if not self._text or self._processing:
             return self.MIN_WIDTH
-        text_width = self._label.fontMetrics().horizontalAdvance(self._label.text()) + 16
-        label_w = min(480, max(60, text_width))
-        return min(self.MAX_WIDTH, max(self.MIN_WIDTH, label_w + 80))
+        return self._calc_width(self._text)
 
     def show_entry(self):
         self._processing = False
+        self._text = ""
         self._spinner.stop()
         self._spinner.hide()
         self._label.hide()
@@ -258,14 +261,12 @@ class FloatingCapsule(QWidget):
         self._anim_scale.start()
 
     def set_processing(self):
-        """Shrink to spinner-only mode — no text, just loading animation."""
         self._processing = True
         self.waveform.hide()
         self._label.hide()
         self._sep.hide()
         self._spinner.start()
         self._spinner.show()
-        # Shrink capsule to just fit the spinner
         target_w = 66
         if self.width() != target_w:
             self._animate_width(self, self.width(), target_w)
@@ -301,13 +302,14 @@ class FloatingCapsule(QWidget):
             self.waveform.update_levels(levels)
 
     def update_text(self, text: str):
+        self._text = text
         self._label.setText(text)
         self._label.show()
         self._sep.show()
 
+        new_width = self._base_width
         text_width = self._label.fontMetrics().horizontalAdvance(text) + 16
         label_w = min(480, max(60, text_width))
-        new_width = min(self.MAX_WIDTH, max(self.MIN_WIDTH, label_w + 80))
 
         if self.width() == new_width and self._label.width() == label_w:
             return
@@ -332,13 +334,11 @@ class FloatingCapsule(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # Background — paint only within the rounded rect
         bg = QColor(252, 252, 252, int(235 * self._opacity))
         painter.setPen(Qt.NoPen)
         painter.setBrush(QBrush(bg))
         painter.drawRoundedRect(QRectF(self.rect()), self.RADIUS, self.RADIUS)
 
-        # Thin border (inset 0.5px to stay within the rounded shape)
         border = QColor(210, 210, 210, int(160 * self._opacity))
         painter.setPen(QPen(border, 1.0))
         painter.setBrush(Qt.NoBrush)

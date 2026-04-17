@@ -1,16 +1,17 @@
 """Settings dialog with left sidebar navigation."""
 
-import json
+import ctypes
+import ctypes.wintypes
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer, Signal, QEvent
-from PySide6.QtGui import QFont, QKeyEvent
+from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QFormLayout, QMessageBox, QGroupBox,
     QListWidget, QListWidgetItem, QStackedWidget, QWidget,
     QComboBox, QTextEdit, QRadioButton, QButtonGroup,
-    QCheckBox, QFileDialog, QSizePolicy, QFrame,
+    QCheckBox, QFileDialog,
 )
 
 import sounddevice as sd
@@ -18,6 +19,42 @@ import sounddevice as sd
 from .config import (
     LLM_SYSTEM_PROMPT, BLOCKED_HOTKEY_COMBOS, vk_combo_to_display,
 )
+
+# ── Native keyboard hook declarations for hotkey recording ──────────────────
+
+_user32 = ctypes.windll.user32
+
+_HK_WH_KEYBOARD_LL = 13
+_HK_WM_KEYDOWN = 0x0100
+_HK_WM_SYSKEYDOWN = 0x0104
+
+
+class _HK_KBDLLHOOKSTRUCT(ctypes.Structure):
+    _fields_ = [
+        ("vkCode", ctypes.wintypes.DWORD),
+        ("scanCode", ctypes.wintypes.DWORD),
+        ("flags", ctypes.wintypes.DWORD),
+        ("time", ctypes.wintypes.DWORD),
+        ("dwExtraInfo", ctypes.c_size_t),
+    ]
+
+
+_HK_HOOKPROC = ctypes.CFUNCTYPE(
+    ctypes.c_long, ctypes.c_int,
+    ctypes.c_size_t, ctypes.c_size_t,
+)
+
+_user32.SetWindowsHookExW.argtypes = [
+    ctypes.c_int, _HK_HOOKPROC, ctypes.c_size_t, ctypes.wintypes.DWORD,
+]
+_user32.SetWindowsHookExW.restype = ctypes.c_size_t
+_user32.UnhookWindowsHookEx.argtypes = [ctypes.c_size_t]
+_user32.UnhookWindowsHookEx.restype = ctypes.c_int
+_user32.CallNextHookEx.argtypes = [
+    ctypes.c_size_t, ctypes.c_int,
+    ctypes.c_size_t, ctypes.c_size_t,
+]
+_user32.CallNextHookEx.restype = ctypes.c_long
 
 
 class HotwordTag(QWidget):
@@ -297,15 +334,19 @@ class LLMSettingsPage(QWidget):
 
 
 class HotkeySettingsPage(QWidget):
-    """快捷键 settings: key recording."""
+    """快捷键 settings: key recording with native WH_KEYBOARD_LL hook."""
 
-    recording_finished = Signal(list, str)
-
-    def __init__(self, settings: dict, parent=None):
+    def __init__(self, settings: dict, pause_hook=None, resume_hook=None, parent=None):
         super().__init__(parent)
         self._settings = settings
         self._recording = False
         self._recorded_keys = set()
+        self._vk_codes = list(settings.get("hotkey_vk_codes", [0xA2, 0x5B]))
+        self._pause_hook = pause_hook
+        self._resume_hook = resume_hook
+        self._temp_hook_handle = None
+        self._temp_cb = None
+        self._timeout_timer = None
         self._setup_ui()
 
     def _setup_ui(self):
@@ -319,9 +360,7 @@ class HotkeySettingsPage(QWidget):
         form = QFormLayout()
         form.setSpacing(10)
 
-        self._hotkey_label = QLabel(
-            self._settings.get("hotkey", "ctrl+win")
-        )
+        self._hotkey_label = QLabel(vk_combo_to_display(self._vk_codes))
         self._hotkey_label.setStyleSheet(
             "background:#fff; border:2px solid #2563eb; border-radius:6px; "
             "padding:8px 16px; font-size:14px; font-weight:600; color:#2563eb;"
@@ -367,41 +406,70 @@ class HotkeySettingsPage(QWidget):
             "padding:8px 16px; font-size:14px; color:#92400e;"
         )
 
-        QTimer.singleShot(5000, self._finish_recording)
+        if self._pause_hook:
+            self._pause_hook()
+
+        page = self
+
+        @_HK_HOOKPROC
+        def _hook_proc(nCode, wParam, lParam):
+            if nCode >= 0:
+                kb = ctypes.cast(
+                    ctypes.c_void_p(lParam),
+                    ctypes.POINTER(_HK_KBDLLHOOKSTRUCT),
+                ).contents
+                vk = kb.vkCode
+                is_down = wParam in (_HK_WM_KEYDOWN, _HK_WM_SYSKEYDOWN)
+
+                if is_down:
+                    if vk == 0x1B:
+                        QTimer.singleShot(0, page._cancel_recording)
+                        return 1
+
+                    page._recorded_keys.add(vk)
+                    page._hotkey_label.setText(
+                        vk_combo_to_display(list(page._recorded_keys))
+                    )
+
+                    if len(page._recorded_keys) >= 2:
+                        combo = frozenset(page._recorded_keys)
+                        if combo in BLOCKED_HOTKEY_COMBOS:
+                            page._hotkey_label.setText("此组合键被系统占用，请换一组")
+                            return 1
+                        QTimer.singleShot(0, page._finish_recording)
+
+                return 1
+
+            return _user32.CallNextHookEx(
+                page._temp_hook_handle, nCode, wParam, lParam
+            )
+
+        self._temp_cb = _hook_proc
+        self._temp_hook_handle = _user32.SetWindowsHookExW(
+            _HK_WH_KEYBOARD_LL, _hook_proc, 0, 0,
+        )
+
+        self._timeout_timer = QTimer(self)
+        self._timeout_timer.setSingleShot(True)
+        self._timeout_timer.timeout.connect(self._cancel_recording)
+        self._timeout_timer.start(5000)
 
     def _cancel_recording(self):
+        if not self._recording:
+            return
+        self._cleanup_hook()
         self._recording = False
         self._record_btn.setText("录制")
-        self._hotkey_label.setText(self._settings.get("hotkey", "ctrl+win"))
+        self._hotkey_label.setText(vk_combo_to_display(self._vk_codes))
         self._hotkey_label.setStyleSheet(
             "background:#fff; border:2px solid #2563eb; border-radius:6px; "
             "padding:8px 16px; font-size:14px; font-weight:600; color:#2563eb;"
         )
 
-    def handle_key_event(self, vk_code: int, is_down: bool):
-        if not self._recording:
-            return False
-
-        if vk_code == 0x1B:
-            self._cancel_recording()
-            return True
-
-        if is_down:
-            self._recorded_keys.add(vk_code)
-            self._hotkey_label.setText(vk_combo_to_display(list(self._recorded_keys)))
-
-            if len(self._recorded_keys) >= 2:
-                combo = frozenset(self._recorded_keys)
-                if combo in BLOCKED_HOTKEY_COMBOS:
-                    self._hotkey_label.setText("此组合键被系统占用，请换一组")
-                    return True
-                self._finish_recording()
-
-        return True
-
     def _finish_recording(self):
         if not self._recording:
             return
+        self._cleanup_hook()
         self._recording = False
         self._record_btn.setText("录制")
 
@@ -409,28 +477,37 @@ class HotkeySettingsPage(QWidget):
             self._cancel_recording()
             return
 
-        vk_codes = sorted(self._recorded_keys)
-        display = vk_combo_to_display(vk_codes)
-        self._hotkey_label.setText(display)
+        self._vk_codes = sorted(self._recorded_keys)
+        self._hotkey_label.setText(vk_combo_to_display(self._vk_codes))
         self._hotkey_label.setStyleSheet(
             "background:#fff; border:2px solid #2563eb; border-radius:6px; "
             "padding:8px 16px; font-size:14px; font-weight:600; color:#2563eb;"
         )
-        self.recording_finished.emit(vk_codes, display)
+
+    def _cleanup_hook(self):
+        if self._timeout_timer:
+            self._timeout_timer.stop()
+            self._timeout_timer = None
+        if self._temp_hook_handle:
+            _user32.UnhookWindowsHookEx(self._temp_hook_handle)
+            self._temp_hook_handle = None
+            self._temp_cb = None
+        if self._resume_hook:
+            self._resume_hook()
 
     def _reset(self):
-        self._hotkey_label.setText("Ctrl + Win")
-        self.recording_finished.emit([0xA2, 0x5B], "Ctrl + Win")
+        self._vk_codes = [0xA2, 0x5B]
+        self._hotkey_label.setText(vk_combo_to_display(self._vk_codes))
+
+    def cleanup(self):
+        if self._recording:
+            self._cancel_recording()
 
     def get_settings(self) -> dict:
-        text = self._hotkey_label.text()
         return {
-            "hotkey": text,
+            "hotkey": self._hotkey_label.text(),
+            "hotkey_vk_codes": self._vk_codes,
         }
-
-    @property
-    def is_recording(self) -> bool:
-        return self._recording
 
 
 class AppearanceSettingsPage(QWidget):
@@ -483,13 +560,15 @@ class AboutPage(QWidget):
 class SettingsDialog(QDialog):
     """Main settings dialog with left sidebar navigation."""
 
-    def __init__(self, settings: dict, parent=None):
+    def __init__(self, settings: dict, pause_hook=None, resume_hook=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("AirType 设置")
         self.setFixedSize(660, 500)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
 
         self._settings = dict(settings)
+        self._pause_hook = pause_hook
+        self._resume_hook = resume_hook
         self._setup_ui()
 
     def _setup_ui(self):
@@ -529,7 +608,7 @@ class SettingsDialog(QDialog):
         pages = [
             ("🎙️ 语音识别", ASRSettingsPage(self._settings)),
             ("✨ LLM 精炼", LLMSettingsPage(self._settings)),
-            ("⌨️ 快捷键", HotkeySettingsPage(self._settings)),
+            ("⌨️ 快捷键", HotkeySettingsPage(self._settings, self._pause_hook, self._resume_hook)),
             ("🎨 外观", AppearanceSettingsPage()),
             ("ℹ️ 关于", AboutPage()),
         ]
@@ -580,7 +659,17 @@ class SettingsDialog(QDialog):
             self._stack.setCurrentIndex(row)
 
     def _save(self):
+        self._cleanup_hotkey_page()
         self.accept()
+
+    def reject(self):
+        self._cleanup_hotkey_page()
+        super().reject()
+
+    def _cleanup_hotkey_page(self):
+        hotkey_page = self._pages[2]
+        if isinstance(hotkey_page, HotkeySettingsPage):
+            hotkey_page.cleanup()
 
     def get_changed_settings(self) -> dict:
         result = {}

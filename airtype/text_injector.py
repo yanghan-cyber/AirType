@@ -2,7 +2,6 @@
 
 import ctypes
 import ctypes.wintypes
-import time as _time
 
 from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtWidgets import QApplication
@@ -10,7 +9,7 @@ from PySide6.QtWidgets import QApplication
 from .config import (
     VK_CONTROL, VK_V, VK_LWIN, VK_SHIFT, VK_INSERT,
     KEYEVENTF_KEYUP, CONSOLE_WINDOW_CLASS,
-    CJK_LAYOUTS, ENGLISH_US_LAYOUT,
+    CJK_LAYOUTS, ENGLISH_US_LAYOUT, UNICODE_CHAR_DELAY_MS,
 )
 
 user32 = ctypes.windll.user32
@@ -28,13 +27,16 @@ class _KEYBDINPUT(ctypes.Structure):
         ("wScan", ctypes.wintypes.WORD),
         ("dwFlags", ctypes.wintypes.DWORD),
         ("time", ctypes.wintypes.DWORD),
-        ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)),
+        ("dwExtraInfo", ctypes.c_size_t),
     ]
 
 
 class _INPUT(ctypes.Structure):
     class _U(ctypes.Union):
-        _fields_ = [("ki", _KEYBDINPUT)]
+        _fields_ = [
+            ("ki", _KEYBDINPUT),
+            ("_pad", ctypes.c_byte * 32),
+        ]
 
     _fields_ = [
         ("type", ctypes.wintypes.DWORD),
@@ -167,14 +169,14 @@ def _inject_unicode(text: str):
         inp.union.ki.wScan = ord(ch)
         inp.union.ki.dwFlags = KEYEVENTF_UNICODE
         inp.union.ki.time = 0
-        inp.union.ki.dwExtraInfo = ctypes.pointer(ctypes.c_ulong(0))
+        inp.union.ki.dwExtraInfo = 0
         _SendInput(1, ctypes.byref(inp), ctypes.sizeof(_INPUT))
 
         # Key up
         inp.union.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP
         _SendInput(1, ctypes.byref(inp), ctypes.sizeof(_INPUT))
 
-        _time.sleep(0.010)
+        _wait(UNICODE_CHAR_DELAY_MS)
 
 
 # ── Main injection entry point ──────────────────────────────────────────────

@@ -1,34 +1,27 @@
 """System tray icon with context menu."""
 
-import sys
-from pathlib import Path
-
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QIcon, QAction, QPixmap, QPainter, QColor, QFont, QPen
 from PySide6.QtWidgets import QSystemTrayIcon, QMenu
 
 from .settings_dialog import SettingsDialog
-from .config import load_settings, save_settings
+from .config import save_settings
 
 
 def _create_default_icon() -> QIcon:
-    """Create a simple microphone-like icon programmatically."""
     pixmap = QPixmap(64, 64)
     pixmap.fill(QColor(0, 0, 0, 0))
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.Antialiasing)
 
-    # Mic body
     painter.setPen(QColor(0, 0, 0, 0))
     painter.setBrush(QColor(70, 130, 250))
     painter.drawRoundedRect(22, 8, 20, 28, 10, 10)
 
-    # Mic base arc
     painter.setPen(QPen(QColor(70, 130, 250), 3))
     painter.setBrush(QColor(0, 0, 0, 0))
     painter.drawArc(18, 18, 28, 28, 30 * 16, 120 * 16)
 
-    # Mic stand line
     painter.drawLine(32, 46, 32, 56)
     painter.drawLine(24, 56, 40, 56)
 
@@ -49,16 +42,16 @@ class TrayIcon(QObject):
     settings_changed = Signal(dict)
     quit_requested = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, settings: dict, pause_hook=None, resume_hook=None, parent=None):
         super().__init__(parent)
-        self._settings = load_settings()
+        self._settings = settings
+        self._pause_hook = pause_hook
+        self._resume_hook = resume_hook
 
-        # Tray icon
         self._tray = QSystemTrayIcon()
         self._tray.setIcon(_create_default_icon())
         self._tray.setToolTip("AirType - Voice Input")
 
-        # Context menu
         self._menu = QMenu()
 
         self._llm_action = QAction("LLM Refinement", self)
@@ -95,9 +88,9 @@ class TrayIcon(QObject):
         self.llm_toggled.emit(checked)
 
     def _show_settings(self):
-        dlg = SettingsDialog()
+        dlg = SettingsDialog(self._settings, self._pause_hook, self._resume_hook)
         if dlg.exec() == SettingsDialog.Accepted:
-            self._settings = dlg.get_settings()
+            self._settings.update(dlg.get_changed_settings())
             save_settings(self._settings)
             self.settings_changed.emit(dict(self._settings))
 

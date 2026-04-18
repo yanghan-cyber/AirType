@@ -7,14 +7,10 @@ dependencies = [
     "PySide6>=6.7",
     "transformers>=4.40",
     "accelerate>=0.27",
-    "keyboard>=0.13.5",
     "sounddevice>=0.4.7",
     "numpy>=1.26",
-    "pyautogui>=0.9.54",
     "openai>=1.0",
-    "win32mica>=1.7; sys_platform == 'win32'",
     "qwen-asr",
-    "soundfile",
 ]
 
 [tool.uv]

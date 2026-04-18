@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtCore import QObject, Signal, Qt
 
 from .config import (
-    load_settings, VK_LCONTROL, VK_LWIN, KEYEVENTF_KEYUP,
+    load_settings, VK_LCONTROL, VK_LWIN, VK_RWIN, KEYEVENTF_KEYUP,
     CJK_LAYOUTS, ENGLISH_US_LAYOUT, CONSOLE_WINDOW_CLASS,
     vk_combo_to_display,
 )
@@ -78,8 +78,11 @@ class _HotkeyRelay(QObject):
         super().__init__()
         self._active = False
         self._paused = False
+        self._own_event = False
         self._target_keys: set[int] = {VK_LCONTROL, VK_LWIN}
         self._held_keys: set[int] = set()
+        self._leaked_keys: set[int] = set()
+        self._buffered_vk = None
         self._hook_handle = None
         self._cb = None
 
@@ -88,7 +91,7 @@ class _HotkeyRelay(QObject):
 
         @_HOOKPROC
         def _proc(nCode, wParam, lParam):
-            if relay._paused:
+            if relay._own_event or relay._paused:
                 return user32.CallNextHookEx(relay._hook_handle, nCode, wParam, lParam)
 
             if nCode >= 0:
@@ -99,25 +102,86 @@ class _HotkeyRelay(QObject):
                 vk = kb.vkCode
                 is_down = wParam in (WM_KEYDOWN, WM_SYSKEYDOWN)
 
+                # Phase 1: Update held keys
                 if vk in relay._target_keys:
                     if is_down:
                         relay._held_keys.add(vk)
                     else:
                         relay._held_keys.discard(vk)
 
+                # Phase 2: Buffer first target key KEYDOWN
+                if (is_down and vk in relay._target_keys
+                        and not relay._active
+                        and relay._buffered_vk is None
+                        and len(relay._held_keys) == 1):
+                    relay._buffered_vk = vk
+                    return 1
+
+                # Block repeats of the buffered key
+                if is_down and vk == relay._buffered_vk:
+                    return 1
+
+                # Non-target key while buffer active: replay buffer, pass through
+                if (is_down and vk not in relay._target_keys
+                        and relay._buffered_vk is not None):
+                    relay._own_event = True
+                    user32.keybd_event(relay._buffered_vk, 0, 0, 0)
+                    relay._own_event = False
+                    relay._leaked_keys.add(relay._buffered_vk)
+                    relay._buffered_vk = None
+                    return user32.CallNextHookEx(
+                        relay._hook_handle, nCode, wParam, lParam,
+                    )
+
+                # Buffered key released alone: replay KEYDOWN+KEYUP
+                if (not is_down and relay._buffered_vk is not None
+                        and vk == relay._buffered_vk):
+                    relay._own_event = True
+                    user32.keybd_event(vk, 0, 0, 0)
+                    user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+                    relay._own_event = False
+                    relay._held_keys.discard(vk)
+                    relay._buffered_vk = None
+                    return 1
+
+                # Phase 3: Combo activation / deactivation
                 combo = relay._held_keys == relay._target_keys
                 if combo and not relay._active:
                     relay._active = True
                     relay.key_pressed.emit()
+                    relay._buffered_vk = None
+                    win_leaked = False
+                    relay._own_event = True
+                    for lk in list(relay._leaked_keys):
+                        user32.keybd_event(lk, 0, KEYEVENTF_KEYUP, 0)
+                        if lk in (VK_LWIN, VK_RWIN):
+                            win_leaked = True
+                    if win_leaked:
+                        user32.keybd_event(0x1B, 0, 0, 0)
+                        user32.keybd_event(0x1B, 0, KEYEVENTF_KEYUP, 0)
+                    relay._own_event = False
                 elif not combo and relay._active:
                     relay._active = False
                     relay.key_released.emit()
+                    relay._own_event = True
                     for held_vk in list(relay._held_keys):
-                        user32.keybd_event(held_vk, 0, KEYEVENTF_KEYUP, 0)
+                        if held_vk not in relay._leaked_keys:
+                            user32.keybd_event(held_vk, 0, KEYEVENTF_KEYUP, 0)
+                    relay._own_event = False
                     relay._held_keys.clear()
+                    relay._leaked_keys.clear()
+                    relay._buffered_vk = None
 
+                # Phase 4: Block target keys while combo active
                 if vk in relay._target_keys and relay._active:
                     return 1
+
+                # Phase 5: Track leaked keys for target keys passing through
+                if vk in relay._target_keys and not relay._active:
+                    if is_down:
+                        relay._leaked_keys.add(vk)
+                    else:
+                        relay._leaked_keys.discard(vk)
 
             return user32.CallNextHookEx(relay._hook_handle, nCode, wParam, lParam)
 
@@ -127,9 +191,13 @@ class _HotkeyRelay(QObject):
         )
 
     def unhook(self):
+        self._own_event = True
         for vk in list(self._held_keys):
             user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+        self._own_event = False
         self._held_keys.clear()
+        self._leaked_keys.clear()
+        self._buffered_vk = None
         self._active = False
         if self._hook_handle:
             user32.UnhookWindowsHookEx(self._hook_handle)
@@ -138,9 +206,13 @@ class _HotkeyRelay(QObject):
 
     def pause(self):
         self._paused = True
+        self._own_event = True
         for vk in list(self._held_keys):
             user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+        self._own_event = False
         self._held_keys.clear()
+        self._leaked_keys.clear()
+        self._buffered_vk = None
         self._active = False
 
     def resume(self):

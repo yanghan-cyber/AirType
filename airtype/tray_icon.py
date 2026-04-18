@@ -75,6 +75,8 @@ class TrayIcon(QObject):
         self._tray.setContextMenu(self._menu)
         self._tray.activated.connect(self._on_activated)
 
+        self._settings_dlg = None
+
     def show(self):
         self._tray.show()
 
@@ -88,11 +90,21 @@ class TrayIcon(QObject):
         self.llm_toggled.emit(checked)
 
     def _show_settings(self):
+        if self._settings_dlg is not None:
+            self._settings_dlg.raise_()
+            self._settings_dlg.activateWindow()
+            return
+
         dlg = SettingsDialog(self._settings, self._pause_hook, self._resume_hook)
-        if dlg.exec() == SettingsDialog.Accepted:
-            self._settings.update(dlg.get_changed_settings())
-            save_settings(self._settings)
-            self.settings_changed.emit(dict(self._settings))
+        self._settings_dlg = dlg
+        dlg.applied.connect(self._on_settings_applied)
+        dlg.exec()
+        self._settings_dlg = None
+
+    def _on_settings_applied(self, settings: dict):
+        self._settings.update(settings)
+        save_settings(self._settings)
+        self.settings_changed.emit(dict(self._settings))
 
     def _on_quit(self):
         self.quit_requested.emit()

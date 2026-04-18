@@ -97,7 +97,7 @@ if ($NoExe) {
 # --- Build Executable ---
 Write-Host "[4/4] Building standalone .exe with PyInstaller..." -ForegroundColor Yellow
 
-$mainScript = Join-Path $ProjectRoot "airtype\main.py"
+$mainScript = Join-Path $ProjectRoot "entry.py"
 $iconPath = Join-Path $ProjectRoot "assets\icon.ico"
 
 $pyinstallerArgs = @(
@@ -110,9 +110,6 @@ $pyinstallerArgs = @(
     "--collect-all", "transformers",
     "--collect-all", "accelerate",
     "--hidden-import", "sounddevice",
-    "--hidden-import", "keyboard",
-    "--hidden-import", "pyautogui",
-    "--hidden-import", "win32mica",
     "--hidden-import", "openai",
     "--hidden-import", "qwen_asr"
 )

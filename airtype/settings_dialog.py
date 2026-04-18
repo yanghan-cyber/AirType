@@ -560,6 +560,8 @@ class AboutPage(QWidget):
 class SettingsDialog(QDialog):
     """Main settings dialog with left sidebar navigation."""
 
+    applied = Signal(dict)
+
     def __init__(self, settings: dict, pause_hook=None, resume_hook=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("AirType 设置")
@@ -630,23 +632,33 @@ class SettingsDialog(QDialog):
 
         btn_row = QHBoxLayout()
         btn_row.addStretch()
-        save_btn = QPushButton("保存")
-        save_btn.setDefault(True)
-        save_btn.clicked.connect(self._save)
-        save_btn.setStyleSheet(
-            "QPushButton{background:#2563eb;color:#fff;border:none;"
-            "border-radius:6px;padding:8px 24px;font-size:13px;font-weight:500;}"
-            "QPushButton:hover{background:#1d4ed8;}"
-        )
-        btn_row.addWidget(save_btn)
 
-        cancel_btn = QPushButton("取消")
-        cancel_btn.clicked.connect(self.reject)
-        cancel_btn.setStyleSheet(
+        _secondary_style = (
             "QPushButton{background:#f1f5f9;border:1px solid #d1d5db;"
             "border-radius:6px;padding:8px 24px;font-size:13px;}"
             "QPushButton:hover{background:#e2e8f0;}"
+            "QPushButton:pressed{background:#cbd5e1;}"
         )
+
+        ok_btn = QPushButton("确定")
+        ok_btn.setDefault(True)
+        ok_btn.clicked.connect(self._ok)
+        ok_btn.setStyleSheet(
+            "QPushButton{background:#2563eb;color:#fff;border:none;"
+            "border-radius:6px;padding:8px 24px;font-size:13px;font-weight:500;}"
+            "QPushButton:hover{background:#1d4ed8;}"
+            "QPushButton:pressed{background:#1e40af;}"
+        )
+        btn_row.addWidget(ok_btn)
+
+        apply_btn = QPushButton("应用")
+        apply_btn.clicked.connect(self._apply)
+        apply_btn.setStyleSheet(_secondary_style)
+        btn_row.addWidget(apply_btn)
+
+        cancel_btn = QPushButton("取消")
+        cancel_btn.clicked.connect(self.reject)
+        cancel_btn.setStyleSheet(_secondary_style)
         btn_row.addWidget(cancel_btn)
 
         right.addLayout(btn_row)
@@ -658,13 +670,21 @@ class SettingsDialog(QDialog):
         if 0 <= row < len(self._pages):
             self._stack.setCurrentIndex(row)
 
-    def _save(self):
+    def _ok(self):
+        self.applied.emit(self.get_changed_settings())
         self._cleanup_hotkey_page()
         self.accept()
+
+    def _apply(self):
+        self.applied.emit(self.get_changed_settings())
 
     def reject(self):
         self._cleanup_hotkey_page()
         super().reject()
+
+    def closeEvent(self, event):
+        self._cleanup_hotkey_page()
+        event.accept()
 
     def _cleanup_hotkey_page(self):
         hotkey_page = self._pages[2]

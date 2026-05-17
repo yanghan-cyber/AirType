@@ -1,0 +1,34 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Node
+node_modules/
+
+# IDE / Tools
+.superpowers/
+.claude/
+.vscode/
+.idea/
+
+# Models (large files)
+models/
+*.safetensors
+*.bin
+
+# Build artifacts
+build/
+bin/
+target/
+src-tauri/target/
+src-tauri/gen/
+
+# Runtime
+src-tauri/resources/backend/
+config.json
+
+# OS
+.DS_Store
+Thumbs.db

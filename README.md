@@ -66,6 +66,11 @@ AirType 支持 **OpenAI 兼容的 ASR API**。你可以使用任何兼容 OpenAI
 
 **推荐使用 [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR) 模型**，它是一个高性能的开源语音识别模型。
 
+**其他 OpenAI 兼容服务：**
+- [OpenAI Whisper API](https://platform.openai.com/docs/api-reference/audio)
+- [LocalAI](https://github.com/go-skynet/LocalAI)
+- [whisper.cpp](https://github.com/ggerganov/whisper.cpp) 的 OpenAI 兼容 API
+
 #### 3. 构建并运行
 
 ```bash
@@ -83,8 +88,7 @@ cargo run
 {
   "hotkey": "Ctrl+Win",
   "enabled": true,
-  "backend_url": "https://api.openai.com/v1",
-  "max_recording_secs": 30
+  "backend_url": "https://api.openai.com/v1"
 }
 ```
 
@@ -93,7 +97,6 @@ cargo run
 | `hotkey` | 录音快捷键 | `Ctrl+Win` |
 | `enabled` | 是否启用 | `true` |
 | `backend_url` | ASR 后端地址 | `https://api.openai.com/v1` |
-| `max_recording_secs` | 最大录音时长（秒） | `30` |
 
 ---
 

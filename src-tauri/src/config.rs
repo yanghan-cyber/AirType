@@ -184,7 +184,6 @@ pub struct AppConfig {
     pub language: Option<String>,
     pub backend_url: String,
     pub asr_api_key: String,
-    pub max_recording_secs: u32,
     pub capsule_x: Option<i32>,
     pub capsule_y: Option<i32>,
     pub capsule_default_position: String,
@@ -206,7 +205,6 @@ impl Default for AppConfig {
             language: None,
             backend_url: "https://api.openai.com/v1".to_string(),
             asr_api_key: String::new(),
-            max_recording_secs: 180,
             capsule_x: None,
             capsule_y: None,
             capsule_default_position: "bottom".to_string(),
@@ -329,7 +327,6 @@ mod tests {
         assert!(cfg.hotwords.is_empty());
         assert!(cfg.language.is_none());
         assert_eq!(cfg.backend_url, "https://api.openai.com/v1");
-        assert_eq!(cfg.max_recording_secs, 180);
     }
 
     #[test]

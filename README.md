@@ -140,7 +140,6 @@ airType/
 ├── ui/                 # 前端界面 (HTML/CSS/JS)
 │   ├── capsule.html    # 胶囊浮动窗
 │   └── settings.html   # 设置窗口
-├── models/             # ASR 模型 (gitignore)
 ├── bin/                # 二进制依赖
 └── config.json         # 用户配置 (gitignore)
 ```

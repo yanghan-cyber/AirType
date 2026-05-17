@@ -20,7 +20,6 @@ fn test_config_file_has_all_fields() {
     assert!(json.get("hotwords").is_some());
     assert!(json.get("language").is_some());
     assert!(json.get("backend_url").is_some());
-    assert!(json.get("max_recording_secs").is_some());
 }
 
 #[test]

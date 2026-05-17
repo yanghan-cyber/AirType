@@ -1,0 +1,2 @@
+# Runtime config - written by the app, should not trigger rebuild
+config.json

@@ -1,0 +1,38 @@
+[package]
+name = "airtype"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "airtype"
+path = "src/lib.rs"
+
+[[bin]]
+name = "airtype"
+path = "src/main.rs"
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", features = ["blocking", "json", "multipart"] }
+cpal = "0.15"
+rdev = { version = "0.5", features = ["unstable_grab"] }
+tokio = { version = "1", features = ["full"] }
+image = "0.25"
+chrono = "0.4"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Graphics_Dwm",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dev-dependencies]
+mockito = "1"
+tempfile = "3"

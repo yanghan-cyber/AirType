@@ -1,0 +1,22 @@
+{
+  "productName": "AirType",
+  "version": "0.1.0",
+  "identifier": "com.airtype.app",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": []
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "resources": [],
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": false
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for AirType",
+  "windows": ["main", "capsule", "settings"],
+  "permissions": [
+    "core:default",
+    "shell:allow-open",
+    "core:window:allow-start-dragging"
+  ]
+}

@@ -64,28 +64,7 @@ cd airType
 
 AirType 支持 **OpenAI 兼容的 ASR API**。你可以使用任何兼容 OpenAI API 的语音识别服务。
 
-**推荐方案：使用 Qwen3-ASR 模型**
-
-推荐使用 [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR) 模型，它是一个高性能的开源语音识别模型。
-
-**启动方式：**
-
-1. **使用 llama.cpp（推荐）**
-   ```bash
-   # 下载 llama.cpp
-   # 从 https://github.com/ggerganov/llama.cpp/releases 下载预编译版本
-   
-   # 下载 Qwen3-ASR 模型（GGUF 格式）
-   # 从 https://huggingface.co/Qwen/Qwen3-ASR-0.6B-GGUF 下载
-   
-   # 启动 ASR 服务器
-   llama-server -m models/qwen3-asr-0.6b-q4_k_m.gguf --port 8178
-   ```
-
-2. **使用其他 OpenAI 兼容服务**
-   - [OpenAI Whisper API](https://platform.openai.com/docs/api-reference/audio)
-   - [LocalAI](https://github.com/go-skynet/LocalAI)
-   - [whisper.cpp](https://github.com/ggerganov/whisper.cpp) 的 OpenAI 兼容 API
+**推荐使用 [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR) 模型**，它是一个高性能的开源语音识别模型。
 
 #### 3. 构建并运行
 

@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>AirType 设置</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #181818;
+  font-family: 'Segoe UI', -apple-system, sans-serif;
+  color: #fff;
+  overflow-y: auto;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #4d4d4d; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #666; }
+
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid #282828;
+  background: #1f1f1f;
+}
+.tab {
+  flex: 1; padding: 12px 16px; text-align: center;
+  font-size: 13px; font-weight: 600; color: #b3b3b3;
+  cursor: pointer; border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+  letter-spacing: 0.5px; text-transform: uppercase;
+}
+.tab:hover { color: #fff; }
+.tab.active { color: #1ed760; border-bottom-color: #1ed760; }
+
+.tab-content { padding: 20px 24px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+.setting-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.setting-row:last-child { border-bottom: none; }
+.setting-label { font-size: 14px; color: #fff; }
+.setting-hint { font-size: 12px; color: #535353; margin-top: 2px; }
+
+.toggle {
+  width: 40px; height: 22px; background: #4d4d4d;
+  border-radius: 11px; position: relative; cursor: pointer; transition: background 0.2s;
+}
+.toggle.on { background: #1ed760; }
+.toggle::after {
+  content: ''; position: absolute; width: 16px; height: 16px;
+  background: #fff; border-radius: 50%; top: 3px; left: 3px; transition: left 0.2s;
+}
+.toggle.on::after { left: 21px; }
+
+.key {
+  background: #1f1f1f; border: 1px solid #4d4d4d;
+  border-radius: 6px; padding: 4px 10px;
+  font-size: 12px; color: #fff; font-weight: 600;
+}
+
+.hotkey-recorder { display: flex; align-items: center; gap: 8px; }
+.rec-btn {
+  background: #1f1f1f; border: 1px solid #4d4d4d;
+  border-radius: 6px; padding: 6px 12px;
+  color: #b3b3b3; font-size: 12px; cursor: pointer;
+  transition: all 0.2s; font-weight: 600;
+}
+.rec-btn:hover { border-color: #1ed760; color: #1ed760; }
+
+.hotkey-recorder.recording .rec-btn {
+  border-color: #1ed760; background: rgba(29,217,96,0.1);
+  color: #1ed760; animation: recPulse 1s ease-in-out infinite;
+}
+.hotkey-recorder.recording .key { opacity: 0.3; }
+@keyframes recPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(29,217,96,0.2); }
+  50% { box-shadow: 0 0 0 6px rgba(29,217,96,0); }
+}
+
+
+.hotword-input-wrap { display: flex; gap: 8px; margin-top: 12px; }
+.text-input {
+  background: #1f1f1f;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+  box-shadow: rgb(18,18,18) 0px 1px 0px, rgb(124,124,124) 0px 0px 0px 1px inset;
+  transition: box-shadow 0.2s;
+}
+.text-input:focus {
+  box-shadow: 0 0 0 1px #1ed760 inset;
+}
+.text-input::placeholder { color: #535353; }
+
+/* Short input layout (label left, input right, one line) */
+.setting-row.short-input {
+  align-items: center;
+}
+.setting-row.short-input .text-input {
+  text-align: center;
+}
+.input-short { width: 120px; }
+.input-short-num { width: 80px; }
+.input-short-tokens { width: 100px; }
+
+/* Long input layout (label top, input below, full width) */
+.setting-row.long-input {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.setting-row.long-input .input-with-btn {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.setting-row.long-input .input-with-btn .text-input {
+  flex: 1;
+}
+.btn-add {
+  background: #1ed760; color: #000; border: none;
+  border-radius: 6px; padding: 8px 14px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.btn-add:hover { background: #1db954; }
+.hotword-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.tag {
+  display: flex; align-items: center; gap: 6px;
+  background: #1f1f1f; border: 1px solid #282828;
+  border-radius: 9999px; padding: 5px 10px 5px 12px; font-size: 13px; color: #fff;
+}
+.tag-x {
+  width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;
+  color: #535353; cursor: pointer; font-size: 14px; border-radius: 50%; transition: all 0.15s;
+}
+.tag-x:hover { background: rgba(243,114,127,0.15); color: #f3727f; }
+
+.select-input {
+  background: #1f1f1f; border: 1px solid #4d4d4d;
+  border-radius: 6px; padding: 6px 28px 6px 10px;
+  color: #fff; font-size: 13px; outline: none;
+  appearance: none; cursor: pointer;
+}
+.select-input:focus { border-color: #1ed760; }
+
+.section-label {
+  color: #b3b3b3; font-size: 11px; text-transform: uppercase;
+  letter-spacing: 1.2px; font-weight: 600; margin: 16px 0 8px;
+}
+
+.backend-status {
+  margin-top: 12px; padding: 12px 14px; background: #1f1f1f;
+  border: 1px solid #282828; border-radius: 8px;
+}
+.backend-status-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0; font-size: 13px;
+}
+.backend-status-row + .backend-status-row { border-top: 1px solid rgba(255,255,255,0.04); }
+.backend-status-label { color: #b3b3b3; }
+.backend-status-value { color: #fff; font-weight: 500; }
+.status-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  margin-right: 6px; vertical-align: middle;
+}
+.status-dot.on { background: #1ed760; }
+.status-dot.off { background: #f3727f; }
+
+.status-bar {
+  padding: 8px 24px;
+  background: #1f1f1f;
+  border-top: 1px solid #282828;
+  font-size: 11px; color: #535353;
+}
+
+.modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6); z-index: 100;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.visible { display: flex; }
+.modal {
+  background: #282828;
+  box-shadow: rgba(0,0,0,0.5) 0px 8px 24px;
+  border-radius: 12px;
+  padding: 0;
+  width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  padding: 24px 24px 0;
+}
+.modal-title::after {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 3px;
+  background: #1ed760;
+  border-radius: 2px;
+  margin-top: 8px;
+}
+.modal-body {
+  padding: 16px 24px;
+}
+.modal-field {
+  margin-bottom: 12px;
+}
+.modal-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: #b3b3b3;
+  margin-bottom: 4px;
+}
+.modal-field input, .modal-field textarea {
+  width: 100%;
+  background: #1f1f1f;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+  box-shadow: rgb(18,18,18) 0px 1px 0px, rgb(124,124,124) 0px 0px 0px 1px inset;
+  transition: box-shadow 0.2s;
+}
+.modal-field input:focus, .modal-field textarea:focus {
+  box-shadow: 0 0 0 1px #1ed760 inset;
+}
+.modal-field textarea {
+  min-height: 80px;
+  resize: vertical;
+  font-family: inherit;
+}
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 16px 24px;
+  background: #1f1f1f;
+  border-radius: 0 0 12px 12px;
+}
+.modal-actions .btn-cancel {
+  background: transparent;
+  color: #b3b3b3;
+  border: 1px solid #4d4d4d;
+  border-radius: 9999px;
+  padding: 8px 20px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.modal-actions .btn-cancel:hover { border-color: #b3b3b3; }
+.modal-actions .btn-save {
+  background: #1ed760;
+  color: #000;
+  border: none;
+  border-radius: 9999px;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.modal-actions .btn-save:hover { background: #1aec6a; }
+
+/* Confirm dialog (delete mode) */
+.confirm-modal {
+  background: #282828;
+  box-shadow: rgba(0,0,0,0.5) 0px 8px 24px;
+  border-radius: 12px;
+  padding: 24px;
+  width: 340px;
+  text-align: center;
+}
+.confirm-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(243,114,127,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+}
+.confirm-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.confirm-text {
+  font-size: 13px;
+  color: #b3b3b3;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+.confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+.confirm-actions .btn-cancel {
+  background: transparent;
+  color: #b3b3b3;
+  border: 1px solid #4d4d4d;
+  border-radius: 9999px;
+  padding: 8px 20px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.confirm-actions .btn-cancel:hover { border-color: #b3b3b3; }
+.confirm-actions .btn-delete {
+  background: #f3727f;
+  color: #fff;
+  border: none;
+  border-radius: 9999px;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.confirm-actions .btn-delete:hover { background: #e05566; }
+
+/* Mode popup config */
+.mode-config-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; background: #1f1f1f; border: 1px solid #282828;
+  border-radius: 8px; margin-bottom: 6px; transition: all 0.15s;
+}
+.mode-config-row:hover { border-color: #3d3d3f; }
+.mode-drag-handle {
+  color: #535353; cursor: grab; font-size: 16px; user-select: none;
+  display: flex; align-items: center;
+}
+.mode-drag-handle:active { cursor: grabbing; }
+.mode-config-name { flex: 1; font-size: 13px; color: #fff; }
+.mode-config-badge {
+  font-size: 10px; padding: 2px 8px; border-radius: 9999px;
+  font-weight: 600;
+}
+.mode-config-badge.popup {
+  color: #1ed760; background: rgba(29,217,96,0.1);
+}
+.mode-config-badge.more {
+  color: #535353;
+}
+.mode-config-actions { display: flex; gap: 4px; }
+.mode-config-actions .rec-btn { padding: 4px 8px; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<div class="tab-bar">
+  <div class="tab active" data-tab="general">通用</div>
+  <div class="tab" data-tab="hotwords">热词</div>
+  <div class="tab" data-tab="advanced">高级</div>
+  <div class="tab" data-tab="ai">AI</div>
+</div>
+
+<div class="tab-content">
+  <!-- General -->
+  <div class="tab-panel active" id="panel-general">
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">启用语音输入</div>
+        <div class="setting-hint">关闭后全局热键不响应</div>
+      </div>
+      <div class="toggle on" id="toggleEnabled" onclick="toggleEnabled()"></div>
+    </div>
+
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">录音快捷键</div>
+        <div class="setting-hint">按下新组合键替换</div>
+      </div>
+      <div class="hotkey-recorder" id="recorder">
+        <span class="key" id="key1">Ctrl</span>
+        <span style="color:#535353">+</span>
+        <span class="key" id="key2">Win</span>
+        <button class="rec-btn" id="recBtn" onclick="toggleRecord()">录制</button>
+      </div>
+    </div>
+
+    <div class="setting-row short-input">
+      <div>
+        <div class="setting-label">识别语言</div>
+        <div class="setting-hint">ISO-639-1 格式，如 zh、en、ja，留空自动检测</div>
+      </div>
+      <input class="text-input input-short" id="langSelect" placeholder="自动检测" onchange="saveConfig()">
+    </div>
+
+    <div class="section-label">AI 后处理</div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">处理模式</div>
+        <div class="setting-hint">选择语音识别后的文本处理方式</div>
+      </div>
+      <select class="select-input" id="processingModeSelect" onchange="saveProcessingMode()"></select>
+    </div>
+
+    <div class="section-label">胶囊位置</div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">默认位置</div>
+        <div class="setting-hint">未手动调整时的显示位置</div>
+      </div>
+      <div>
+        <select class="select-input" id="capsulePosSelect" onchange="saveCapsuleDefaults()">
+          <option value="bottom">底部居中</option>
+          <option value="top">顶部居中</option>
+        </select>
+      </div>
+    </div>
+    <div class="setting-row short-input">
+      <div>
+        <div class="setting-label">距边缘偏移</div>
+        <div class="setting-hint">距离屏幕边缘的距离（像素）</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input class="text-input input-short-num" id="capsuleOffsetInput" type="number" value="70" min="0" max="500" onchange="saveCapsuleDefaults()">
+        <span style="color:#535353;font-size:12px;">px</span>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">自定义位置</div>
+        <div class="setting-hint">弹出胶囊并拖拽到目标位置</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="rec-btn" onclick="enterPositionMode()">调整位置</button>
+        <button class="rec-btn" onclick="resetPosition()">恢复默认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hotwords -->
+  <div class="tab-panel" id="panel-hotwords">
+    <div class="setting-label">热词列表</div>
+    <div class="setting-hint" style="margin-bottom:4px">添加专有名词、术语，提高识别准确率</div>
+
+    <div class="hotword-tags" id="tagList"></div>
+
+    <div class="hotword-input-wrap">
+      <input class="text-input" id="hwInput" placeholder="输入新热词，回车添加" onkeydown="if(event.key==='Enter'){event.preventDefault();addTag();}">
+      <button class="btn-add" onclick="addTag()">添加</button>
+    </div>
+  </div>
+
+  <!-- Advanced -->
+  <div class="tab-panel" id="panel-advanced">
+    <div class="setting-row long-input">
+      <div><div class="setting-label">后端地址</div>
+      <div class="setting-hint">本地后端或 OpenAI 兼容 API 地址（如 Groq）</div></div>
+      <div class="input-with-btn">
+        <input class="text-input" id="backendUrlInput" value="https://api.openai.com/v1" onchange="saveConfig()">
+        <button class="rec-btn" onclick="refreshBackendStatus()" style="flex-shrink:0;">刷新</button>
+      </div>
+    </div>
+
+    <div class="setting-row long-input">
+      <div><div class="setting-label">API Key</div>
+      <div class="setting-hint">云端服务需要填写，本地后端留空</div></div>
+      <div class="input-with-btn">
+        <input class="text-input" id="asrApiKeyInput" type="password" placeholder="留空则不发送认证" onchange="saveConfig()">
+        <button class="rec-btn" onclick="toggleAsrApiKeyVisibility()" title="显示/隐藏">👁</button>
+      </div>
+    </div>
+
+    <div class="setting-row long-input">
+      <div><div class="setting-label">ASR 模型</div>
+      <div class="setting-hint">转录使用的模型名称</div></div>
+      <div class="input-with-btn" style="position:relative;">
+        <input class="text-input" id="asrModelInput" placeholder="输入或选择模型" autocomplete="off" onfocus="showAsrModelDropdown()" oninput="filterAsrModels()" onchange="saveConfig()">
+        <div id="asrModelDropdown" style="display:none;position:absolute;top:100%;left:0;right:50px;background:#1f1f1f;border:1px solid #4d4d4d;border-radius:6px;max-height:200px;overflow-y:auto;z-index:50;margin-top:4px;"></div>
+        <button class="rec-btn" onclick="fetchAsrModels()" title="刷新模型列表" style="flex-shrink:0;">刷新</button>
+      </div>
+    </div>
+
+    <div class="section-label">后端状态</div>
+    <div class="backend-status" id="backendStatus">
+      <div class="backend-status-row">
+        <span class="backend-status-label">连接状态</span>
+        <span class="backend-status-value" id="bsConn"><span class="status-dot off"></span>检测中...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI -->
+  <div class="tab-panel" id="panel-ai">
+    <div class="section-label">LLM 连接配置</div>
+    <div class="setting-row long-input">
+      <div>
+        <div class="setting-label">Base URL</div>
+        <div class="setting-hint">OpenAI 兼容 API 地址</div>
+      </div>
+      <input class="text-input" id="llmBaseUrl" value="https://api.openai.com/v1" onchange="saveLlmConfig()">
+    </div>
+    <div class="setting-row long-input">
+      <div>
+        <div class="setting-label">API Key</div>
+      </div>
+      <div class="input-with-btn">
+        <input class="text-input" id="llmApiKey" type="password" placeholder="sk-..." onchange="saveLlmConfig()">
+        <button class="rec-btn" onclick="toggleApiKeyVisibility()" title="显示/隐藏">👁</button>
+      </div>
+    </div>
+    <div class="setting-row long-input">
+      <div>
+        <div class="setting-label">模型</div>
+      </div>
+      <div class="input-with-btn" style="position:relative;">
+        <input class="text-input" id="llmModel" placeholder="输入或选择模型" autocomplete="off" onfocus="showLlmModelDropdown()" oninput="filterLlmModels()" onchange="saveLlmConfig()">
+        <div id="llmModelDropdown" style="display:none;position:absolute;top:100%;left:0;right:50px;background:#1f1f1f;border:1px solid #4d4d4d;border-radius:6px;max-height:200px;overflow-y:auto;z-index:50;margin-top:4px;"></div>
+        <button class="rec-btn" onclick="fetchModels()" title="刷新模型列表">刷新</button>
+      </div>
+    </div>
+    <div class="setting-row short-input">
+      <div>
+        <div class="setting-label">Temperature</div>
+      </div>
+      <input class="text-input input-short-num" id="llmTemperature" type="number" value="0.7" min="0" max="2" step="0.1" onchange="onTemperatureChange()">
+    </div>
+    <div class="setting-row short-input">
+      <div>
+        <div class="setting-label">Max Tokens</div>
+      </div>
+      <input class="text-input input-short-tokens" id="llmMaxTokens" type="number" value="4096" min="1" max="128000" onchange="saveLlmConfig()">
+    </div>
+    <div style="margin-top:10px;">
+      <button class="rec-btn" onclick="testLlmConnection()">测试连接</button>
+      <span id="llmTestResult" style="margin-left:10px;font-size:12px;color:#535353;"></span>
+    </div>
+
+    <div class="section-label">请求参数</div>
+    <div class="setting-hint" style="margin-bottom:8px;">发送给 LLM 的额外 JSON 参数（如 <code>reasoning_effort</code>）</div>
+    <textarea class="text-input" id="llmExtraParams" rows="3" placeholder='{"reasoning_effort":"none"}' style="width:100%;min-height:60px;font-family:monospace;font-size:12px;resize:vertical;" onchange="saveLlmConfig()"></textarea>
+
+    <div class="section-label">第二热键</div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">第二录音热键</div>
+        <div class="setting-hint">可选的额外快捷键，留空则不启用</div>
+      </div>
+      <div class="hotkey-recorder" id="secondaryRecorder">
+        <span class="key" id="secondaryKeyDisplay">未设置</span>
+        <button class="rec-btn" id="secondaryRecBtn" onclick="toggleSecondaryRecord()">录制</button>
+        <button class="rec-btn" onclick="clearSecondaryHotkey()" title="清除">✕</button>
+      </div>
+    </div>
+
+    <div class="section-label">提示词管理</div>
+    <div class="setting-hint" style="margin-bottom:8px;">用 ▲▼ 调整顺序，前 3 项自动显示在 AI 语音键弹窗中，其余在"更多"面板中</div>
+    <div id="modeList"></div>
+    <div style="margin-top:10px;">
+      <button class="btn-add" onclick="addNewMode()">+ 添加新模式</button>
+    </div>
+  </div>
+</div>
+
+<div class="status-bar" id="statusBar">就绪</div>
+
+<div class="modal-overlay" id="modeModal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">编辑模式</div>
+    <input type="hidden" id="modalModeId">
+    <div class="modal-body">
+      <div class="modal-field">
+        <label>模式名称</label>
+        <input type="text" id="modalName" placeholder="如：文本润色">
+      </div>
+      <div class="modal-field">
+        <label>系统提示词 (System Prompt)</label>
+        <textarea id="modalSystemPrompt" placeholder="如：你是专业文本润色助手..."></textarea>
+      </div>
+      <div class="modal-field">
+        <label>用户模板 (可用 {asr_text} 和 {timestamp})</label>
+        <textarea id="modalUserTemplate" placeholder="如：{asr_text}"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModeModal()">取消</button>
+      <button class="btn-save" onclick="saveModeModal()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const invoke = window.__TAURI__ ? window.__TAURI__.core.invoke : async () => {};
+const _originalModalHtml = document.getElementById('modeModal').innerHTML;
+
+// --- Tab switching ---
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+    // Only refresh backend status when user explicitly clicks the refresh button
+  });
+});
+
+// Close model dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  const llmDrop = document.getElementById('llmModelDropdown');
+  if (llmDrop && !e.target.closest('#llmModel') && !e.target.closest('#llmModelDropdown') && !e.target.closest('.rec-btn')) {
+    llmDrop.style.display = 'none';
+  }
+  const asrDrop = document.getElementById('asrModelDropdown');
+  if (asrDrop && !e.target.closest('#asrModelInput') && !e.target.closest('#asrModelDropdown') && !e.target.closest('.rec-btn')) {
+    asrDrop.style.display = 'none';
+  }
+});
+
+// --- Load config from Rust ---
+async function loadConfig() {
+  try {
+    const cfg = await invoke('get_config');
+    applyConfig(cfg);
+  } catch (e) {
+    console.error('Failed to load config:', e);
+  }
+}
+
+function applyConfig(cfg) {
+  // Enabled toggle
+  const toggle = document.getElementById('toggleEnabled');
+  if (cfg.enabled === false) toggle.classList.remove('on');
+  else toggle.classList.add('on');
+
+  // Hotkey display
+  const parts = (cfg.hotkey || 'Ctrl+Win').split('+');
+  if (parts.length >= 2) {
+    document.getElementById('key1').textContent = parts[0];
+    document.getElementById('key2').textContent = parts[1];
+  }
+
+  // Language
+  if (cfg.language) document.getElementById('langSelect').value = cfg.language;
+
+  // Hotwords
+  const tagList = document.getElementById('tagList');
+  tagList.innerHTML = '';
+  (cfg.hotwords || []).forEach(word => appendTag(word));
+
+  // Advanced
+  if (cfg.backend_url) document.getElementById('backendUrlInput').value = cfg.backend_url;
+  if (cfg.asr_api_key) document.getElementById('asrApiKeyInput').value = cfg.asr_api_key;
+  if (cfg.model) document.getElementById('asrModelInput').value = cfg.model;
+
+  // Capsule position
+  if (cfg.capsule_default_position) document.getElementById('capsulePosSelect').value = cfg.capsule_default_position;
+  if (cfg.capsule_default_offset != null) document.getElementById('capsuleOffsetInput').value = cfg.capsule_default_offset;
+
+}
+
+// --- Save config ---
+async function saveConfig() {
+  const cfg = {
+    enabled: document.getElementById('toggleEnabled').classList.contains('on'),
+    hotkey: document.getElementById('key1').textContent + '+' + document.getElementById('key2').textContent,
+    language: document.getElementById('langSelect').value || null,
+    hotwords: getHotwords(),
+    backendUrl: document.getElementById('backendUrlInput').value.trim(),
+    model: document.getElementById('asrModelInput').value.trim() || null,
+    asrApiKey: document.getElementById('asrApiKeyInput').value.trim(),
+  };
+  try {
+    await invoke('save_config', cfg);
+    setStatus('已保存');
+  } catch (e) {
+    setStatus('保存失败: ' + e);
+  }
+}
+
+// --- Enabled toggle ---
+async function toggleEnabled() {
+  const toggle = document.getElementById('toggleEnabled');
+  toggle.classList.toggle('on');
+  await saveConfig();
+}
+
+// --- Backend status ---
+async function refreshBackendStatus() {
+  const connEl = document.getElementById('bsConn');
+  connEl.innerHTML = '<span class="status-dot off"></span>检测中...';
+  try {
+    const result = await invoke('get_backend_status', {
+      backendUrl: document.getElementById('backendUrlInput').value.trim()
+    });
+    if (result.connected) {
+      connEl.innerHTML = '<span class="status-dot on"></span>已连接';
+      if (result.models && result.models.length > 0) {
+        allAsrModels = result.models;
+      }
+    } else {
+      connEl.innerHTML = '<span class="status-dot off"></span>未连接 — ' + (result.error || '未知错误');
+    }
+  } catch (e) {
+    connEl.innerHTML = '<span class="status-dot off"></span>查询失败 — ' + e;
+  }
+}
+// --- Hotkey recording ---
+let recording = false;
+
+function toggleRecord() {
+  const rec = document.getElementById('recorder');
+  const btn = document.getElementById('recBtn');
+  recording = !recording;
+  if (recording) {
+    rec.classList.add('recording');
+    btn.textContent = '按下新组合键...';
+    document.addEventListener('keydown', captureKey);
+  } else {
+    stopRecord();
+  }
+}
+
+function stopRecord() {
+  recording = false;
+  const rec = document.getElementById('recorder');
+  const btn = document.getElementById('recBtn');
+  rec.classList.remove('recording');
+  btn.textContent = '录制';
+  document.removeEventListener('keydown', captureKey);
+}
+
+function captureKey(e) {
+  e.preventDefault();
+  const mods = [];
+  if (e.ctrlKey) mods.push('Ctrl');
+  if (e.altKey) mods.push('Alt');
+  if (e.shiftKey) mods.push('Shift');
+  if (e.metaKey) mods.push('Win');
+  if (mods.length === 0) return;
+
+  // Allow modifier-only combos (e.g. Ctrl+Win)
+  if (['Control','Alt','Shift','Meta'].includes(e.key)) {
+    if (mods.length >= 2) {
+      document.getElementById('key1').textContent = mods[0];
+      document.getElementById('key2').textContent = mods[1];
+      stopRecord();
+      saveConfig();
+    }
+    return;
+  }
+
+  const keyName = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+  mods.push(keyName);
+
+  if (mods.length >= 2) {
+    document.getElementById('key1').textContent = mods[0];
+    document.getElementById('key2').textContent = mods[1];
+  }
+  stopRecord();
+  saveConfig();
+}
+
+// --- Hotwords ---
+function getHotwords() {
+  return Array.from(document.querySelectorAll('#tagList .tag')).map(t =>
+    t.firstChild ? t.firstChild.textContent.trim() : ''
+  ).filter(s => s);
+}
+
+function appendTag(word) {
+  const tagList = document.getElementById('tagList');
+  const tag = document.createElement('div');
+  tag.className = 'tag';
+  tag.textContent = word + ' ';
+  const xBtn = document.createElement('span');
+  xBtn.className = 'tag-x';
+  xBtn.textContent = '×';
+  xBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    tag.remove();
+    saveConfig();
+  });
+  tag.appendChild(xBtn);
+  tagList.appendChild(tag);
+}
+
+function addTag() {
+  const input = document.getElementById('hwInput');
+  const val = input.value.trim();
+  if (!val) return;
+  appendTag(val);
+  input.value = '';
+  saveConfig();
+}
+
+// --- Capsule position ---
+async function saveCapsuleDefaults() {
+  try {
+    await invoke('save_capsule_default_position', {
+      position: document.getElementById('capsulePosSelect').value,
+      offset: parseInt(document.getElementById('capsuleOffsetInput').value) || 70,
+    });
+    setStatus('位置设置已保存');
+  } catch (e) {
+    setStatus('保存失败: ' + e);
+  }
+}
+
+async function enterPositionMode() {
+  try {
+    await invoke('enter_position_mode');
+    setStatus('拖拽胶囊到目标位置，然后点击胶囊上的「确认」按钮');
+  } catch (e) {
+    setStatus('操作失败: ' + e);
+  }
+}
+
+async function resetPosition() {
+  try {
+    await invoke('reset_capsule_position');
+    setStatus('已恢复默认位置');
+  } catch (e) {
+    setStatus('操作失败: ' + e);
+  }
+}
+
+// --- Status ---
+function setStatus(msg) {
+  document.getElementById('statusBar').textContent = msg;
+}
+
+// --- LLM Config ---
+async function loadLlmConfig() {
+  try {
+    const cfg = await invoke('get_llm_config');
+    if (cfg.base_url) document.getElementById('llmBaseUrl').value = cfg.base_url;
+    if (cfg.api_key) document.getElementById('llmApiKey').value = cfg.api_key;
+    if (cfg.model) document.getElementById('llmModel').value = cfg.model;
+    if (cfg.temperature != null) document.getElementById('llmTemperature').value = parseFloat(cfg.temperature).toFixed(1);
+    if (cfg.max_tokens != null) document.getElementById('llmMaxTokens').value = cfg.max_tokens;
+    if (cfg.extra_params) document.getElementById('llmExtraParams').value = cfg.extra_params;
+  } catch (e) {
+    console.error('Failed to load LLM config:', e);
+  }
+}
+
+async function saveLlmConfig() {
+  try {
+    const extraParamsStr = document.getElementById('llmExtraParams').value.trim();
+    await invoke('save_llm_config', {
+      baseUrl: document.getElementById('llmBaseUrl').value.trim() || null,
+      apiKey: document.getElementById('llmApiKey').value.trim() || null,
+      model: document.getElementById('llmModel').value.trim() || null,
+      temperature: parseFloat(document.getElementById('llmTemperature').value) || null,
+      maxTokens: parseInt(document.getElementById('llmMaxTokens').value) || null,
+      extraParams: extraParamsStr || null,
+    });
+    setStatus('LLM 配置已保存');
+  } catch (e) {
+    setStatus('保存失败: ' + e);
+  }
+}
+
+function onTemperatureChange() {
+  const input = document.getElementById('llmTemperature');
+  input.value = parseFloat(input.value).toFixed(1);
+  saveLlmConfig();
+}
+
+function toggleApiKeyVisibility() {
+  const input = document.getElementById('llmApiKey');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+function toggleAsrApiKeyVisibility() {
+  const input = document.getElementById('asrApiKeyInput');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+async function fetchAsrModels() {
+  try {
+    const result = await invoke('fetch_asr_model_list');
+    if (result.success && result.models) {
+      allAsrModels = result.models.sort();
+      setStatus('已加载 ' + allAsrModels.length + ' 个 ASR 模型，点击输入框可选择');
+    } else {
+      setStatus('获取模型列表失败: ' + (result.error || ''));
+    }
+  } catch (e) {
+    setStatus('获取模型列表失败: ' + e);
+  }
+}
+
+async function testLlmConnection() {
+  const resultEl = document.getElementById('llmTestResult');
+  resultEl.textContent = '测试中...';
+  resultEl.style.color = '#b3b3b3';
+  try {
+    const result = await invoke('test_llm_connection');
+    if (result.connected) {
+      resultEl.textContent = '连接成功';
+      resultEl.style.color = '#1ed760';
+    } else {
+      resultEl.textContent = '连接失败: ' + (result.error || '未知错误');
+      resultEl.style.color = '#f3727f';
+    }
+  } catch (e) {
+    resultEl.textContent = '测试失败: ' + e;
+    resultEl.style.color = '#f3727f';
+  }
+}
+
+let allLlmModels = [];
+let allAsrModels = [];
+
+function renderDropdown(dropdownId, inputId, models, filter) {
+  const el = document.getElementById(dropdownId);
+  const inputEl = document.getElementById(inputId);
+  const val = (filter || inputEl.value).toLowerCase();
+  // Matched first, then unmatched
+  const matched = models.filter(m => m.toLowerCase().includes(val));
+  const unmatched = models.filter(m => !m.toLowerCase().includes(val));
+  const sorted = val ? [...matched, ...unmatched] : models;
+  el.innerHTML = '';
+  if (sorted.length === 0) {
+    el.style.display = 'none';
+    return;
+  }
+  sorted.forEach(m => {
+    const opt = document.createElement('div');
+    opt.textContent = m;
+    opt.style.cssText = 'padding:6px 12px;font-size:13px;color:#fff;cursor:pointer;';
+    if (val && !m.toLowerCase().includes(val)) {
+      opt.style.color = '#535353';
+    }
+    opt.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      inputEl.value = m;
+      el.style.display = 'none';
+      inputEl.dispatchEvent(new Event('change'));
+    });
+    opt.addEventListener('mouseenter', () => { opt.style.background = '#282828'; });
+    opt.addEventListener('mouseleave', () => { opt.style.background = ''; });
+    el.appendChild(opt);
+  });
+  el.style.display = 'block';
+}
+
+function filterLlmModels() { renderDropdown('llmModelDropdown', 'llmModel', allLlmModels); }
+function showLlmModelDropdown() { renderDropdown('llmModelDropdown', 'llmModel', allLlmModels); }
+function filterAsrModels() { renderDropdown('asrModelDropdown', 'asrModelInput', allAsrModels); }
+function showAsrModelDropdown() { renderDropdown('asrModelDropdown', 'asrModelInput', allAsrModels); }
+
+async function fetchModels() {
+  try {
+    const result = await invoke('fetch_model_list');
+    if (result.success && result.models) {
+      allLlmModels = result.models.sort();
+      setStatus('已加载 ' + allLlmModels.length + ' 个模型，点击输入框可选择');
+    } else {
+      setStatus('获取模型列表失败: ' + (result.error || ''));
+    }
+  } catch (e) {
+    setStatus('获取模型列表失败: ' + e);
+  }
+}
+
+// --- Processing Modes ---
+async function loadProcessingModes() {
+  try {
+    const modes = await invoke('get_processing_modes');
+    const defaultModeId = await invoke('get_default_processing_mode');
+
+    // Populate processing mode select in General tab
+    const sel = document.getElementById('processingModeSelect');
+    sel.innerHTML = '';
+    // Add "skip AI" option
+    const skipOpt = document.createElement('option');
+    skipOpt.value = 'direct';
+    skipOpt.textContent = '跳过 AI（直接注入）';
+    sel.appendChild(skipOpt);
+    // Add other modes
+    modes.forEach(m => {
+      if (m.id !== 'direct') {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name;
+        sel.appendChild(opt);
+      }
+    });
+    if (defaultModeId) sel.value = defaultModeId;
+
+    // Populate mode list in AI tab (exclude direct, sort by popup_order)
+    const aiModes = modes.filter(m => m.id !== 'direct');
+    aiModes.sort((a, b) => (a.popup_order || 999) - (b.popup_order || 999));
+
+    const listEl = document.getElementById('modeList');
+    listEl.innerHTML = '';
+    const total = aiModes.length;
+    aiModes.forEach((m, idx) => {
+      const isPopup = idx < 3;
+      const row = document.createElement('div');
+      row.className = 'mode-config-row';
+      row.dataset.modeId = m.id;
+      row.innerHTML =
+        '<span class="mode-config-name">' + m.name + '</span>' +
+        '<span class="mode-config-badge ' + (isPopup ? 'popup' : 'more') + '">' +
+        (isPopup ? '弹窗 #' + (idx + 1) : '更多') + '</span>' +
+        '<div class="mode-config-actions">' +
+        '<button class="rec-btn" onclick="moveMode(\'' + m.id + '\', -1)"' + (idx === 0 ? ' disabled style="opacity:0.3"' : '') + ' title="上移">▲</button>' +
+        '<button class="rec-btn" onclick="moveMode(\'' + m.id + '\', 1)"' + (idx === total - 1 ? ' disabled style="opacity:0.3"' : '') + ' title="下移">▼</button>' +
+        '<button class="rec-btn" onclick="editMode(\'' + m.id + '\')">编辑</button>' +
+        '<button class="rec-btn" onclick="deleteMode(\'' + m.id + '\')" style="color:#f3727f;border-color:#f3727f;">删除</button>' +
+        '</div>';
+      listEl.appendChild(row);
+    });
+  } catch (e) {
+    console.error('Failed to load processing modes:', e);
+  }
+}
+
+async function saveProcessingMode() {
+  try {
+    const modeId = document.getElementById('processingModeSelect').value;
+    await invoke('save_default_processing_mode', { modeId });
+    setStatus('处理模式已保存');
+  } catch (e) {
+    setStatus('保存失败: ' + e);
+  }
+}
+
+async function deleteMode(modeId) {
+  try {
+    const modes = await invoke('get_processing_modes');
+    const mode = modes.find(m => m.id === modeId);
+    if (!mode) return;
+    showDeleteConfirm(modeId, mode.name);
+  } catch (e) {
+    setStatus('加载提示词失败: ' + e);
+  }
+}
+
+function showDeleteConfirm(modeId, modeName) {
+  const overlay = document.getElementById('modeModal');
+  overlay.innerHTML =
+    '<div class="confirm-modal">' +
+    '<div class="confirm-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f3727f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>' +
+    '<div class="confirm-title">删除提示词</div>' +
+    '<div class="confirm-text">确定要删除「' + modeName + '」吗？此操作无法撤销。</div>' +
+    '<div class="confirm-actions">' +
+    '<button class="btn-cancel" onclick="closeDeleteConfirm()">取消</button>' +
+    '<button class="btn-delete" onclick="confirmDelete(\'' + modeId + '\')">删除</button>' +
+    '</div></div>';
+  overlay.classList.add('visible');
+}
+
+function closeDeleteConfirm() {
+  const overlay = document.getElementById('modeModal');
+  overlay.classList.remove('visible');
+  restoreModalHtml();
+}
+
+async function confirmDelete(modeId) {
+  closeDeleteConfirm();
+  try {
+    await invoke('delete_processing_mode', { modeId });
+    setStatus('已删除提示词');
+    loadProcessingModes();
+  } catch (e) {
+    setStatus('删除失败: ' + e);
+  }
+}
+
+function restoreModalHtml() {
+  document.getElementById('modeModal').innerHTML = _originalModalHtml;
+}
+
+async function addNewMode() {
+  const id = 'custom_' + Date.now();
+  document.getElementById('modalTitle').textContent = '添加新提示词';
+  document.getElementById('modalModeId').value = id;
+  document.getElementById('modalName').value = '';
+  document.getElementById('modalSystemPrompt').value = '';
+  document.getElementById('modalUserTemplate').value = '{asr_text}';
+  document.getElementById('modeModal').classList.add('visible');
+}
+
+async function editMode(modeId) {
+  try {
+    const modes = await invoke('get_processing_modes');
+    const mode = modes.find(m => m.id === modeId);
+    if (!mode) return;
+    document.getElementById('modalTitle').textContent = '编辑提示词';
+    document.getElementById('modalModeId').value = mode.id;
+    document.getElementById('modalName').value = mode.name;
+    document.getElementById('modalSystemPrompt').value = mode.system_prompt || '';
+    document.getElementById('modalUserTemplate').value = mode.user_template || '{asr_text}';
+    document.getElementById('modeModal').classList.add('visible');
+  } catch (e) {
+    setStatus('加载提示词失败: ' + e);
+  }
+}
+
+function closeModeModal() {
+  document.getElementById('modeModal').classList.remove('visible');
+}
+
+async function saveModeModal() {
+  const modeId = document.getElementById('modalModeId').value;
+  // Preserve existing show_in_popup and popup_order when editing
+  let showInPopup = false;
+  let popupOrder = 0;
+  try {
+    const modes = await invoke('get_processing_modes');
+    const existing = modes.find(m => m.id === modeId);
+    if (existing) {
+      showInPopup = existing.show_in_popup;
+      popupOrder = existing.popup_order;
+    }
+  } catch (e) {}
+
+  const mode = {
+    id: modeId,
+    name: document.getElementById('modalName').value || '未命名',
+    icon: '',
+    system_prompt: document.getElementById('modalSystemPrompt').value,
+    user_template: document.getElementById('modalUserTemplate').value || '{asr_text}',
+    show_in_popup: showInPopup,
+    popup_order: popupOrder,
+  };
+  try {
+    await invoke('save_processing_mode', { mode });
+    closeModeModal();
+    setStatus('提示词已保存');
+    loadProcessingModes();
+  } catch (e) {
+    setStatus('保存失败: ' + e);
+  }
+}
+
+// --- Mode reorder ---
+async function moveMode(modeId, direction) {
+  try {
+    const modes = await invoke('get_processing_modes');
+    const aiModes = modes.filter(m => m.id !== 'direct');
+    aiModes.sort((a, b) => (a.popup_order || 999) - (b.popup_order || 999));
+
+    const idx = aiModes.findIndex(m => m.id === modeId);
+    if (idx < 0) return;
+    const newIdx = idx + direction;
+    if (newIdx < 0 || newIdx >= aiModes.length) return;
+
+    // Swap popup_order between the two items
+    const tmp = aiModes[idx].popup_order;
+    aiModes[idx].popup_order = aiModes[newIdx].popup_order;
+    aiModes[newIdx].popup_order = tmp;
+
+    // Reassign show_in_popup based on sorted order
+    aiModes.sort((a, b) => (a.popup_order || 999) - (b.popup_order || 999));
+    for (let i = 0; i < aiModes.length; i++) {
+      aiModes[i].show_in_popup = i < 3;
+      await invoke('save_processing_mode', { mode: aiModes[i] });
+    }
+    loadProcessingModes();
+    setStatus('模式顺序已保存');
+  } catch (e) {
+    setStatus('排序失败: ' + e);
+  }
+}
+
+// --- Secondary Hotkey ---
+let secondaryRecording = false;
+
+function toggleSecondaryRecord() {
+  secondaryRecording = !secondaryRecording;
+  const recorder = document.getElementById('secondaryRecorder');
+  const btn = document.getElementById('secondaryRecBtn');
+  if (secondaryRecording) {
+    recorder.classList.add('recording');
+    btn.textContent = '按下新组合键...';
+    document.addEventListener('keydown', captureSecondaryKey);
+  } else {
+    stopSecondaryRecord();
+  }
+}
+
+function stopSecondaryRecord() {
+  secondaryRecording = false;
+  document.getElementById('secondaryRecorder').classList.remove('recording');
+  document.getElementById('secondaryRecBtn').textContent = '录制';
+  document.removeEventListener('keydown', captureSecondaryKey);
+}
+
+function captureSecondaryKey(e) {
+  e.preventDefault();
+  const mods = [];
+  if (e.ctrlKey) mods.push('Ctrl');
+  if (e.altKey) mods.push('Alt');
+  if (e.shiftKey) mods.push('Shift');
+  if (e.metaKey) mods.push('Win');
+  if (mods.length === 0) return;
+
+  if (['Control','Alt','Shift','Meta'].includes(e.key)) {
+    if (mods.length >= 2) {
+      const combo = mods[0] + '+' + mods[1];
+      document.getElementById('secondaryKeyDisplay').textContent = combo;
+      stopSecondaryRecord();
+      saveSecondaryHotkey(combo);
+    }
+    return;
+  }
+
+  const keyName = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+  mods.push(keyName);
+  const combo = mods.slice(0, 2).join('+');
+  document.getElementById('secondaryKeyDisplay').textContent = combo;
+  stopSecondaryRecord();
+  saveSecondaryHotkey(combo);
+}
+
+async function saveSecondaryHotkey(hotkey) {
+  try {
+    await invoke('save_secondary_hotkey', { hotkey });
+    setStatus('第二热键已保存');
+  } catch (e) {
+    setStatus('保存失败: ' + e);
+  }
+}
+
+async function loadSecondaryHotkey() {
+  try {
+    const hotkey = await invoke('get_secondary_hotkey');
+    if (hotkey) {
+      document.getElementById('secondaryKeyDisplay').textContent = hotkey;
+    }
+  } catch (e) {
+    console.error('Failed to load secondary hotkey:', e);
+  }
+}
+
+function clearSecondaryHotkey() {
+  document.getElementById('secondaryKeyDisplay').textContent = '未设置';
+  saveSecondaryHotkey('');
+}
+
+// --- Init ---
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadConfig();
+  refreshBackendStatus();
+  await loadLlmConfig();
+  await loadProcessingModes();
+  await loadSecondaryHotkey();
+});
+</script>
+</body>
+</html>

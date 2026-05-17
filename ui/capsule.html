@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  background: transparent;
+  width: 100vw; height: 100vh;
+  overflow: hidden;
+  font-family: 'Segoe UI', -apple-system, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.capsule-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.capsule {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: #181818;
+  overflow: hidden;
+  position: relative;
+  width: auto; height: 40px;
+  padding: 0 16px;
+  gap: 8px;
+  border-radius: 20px;
+}
+.capsule.morphing {
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              height 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              border-radius 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              padding 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.25s ease;
+}
+.capsule.visible { display: flex; }
+
+.waveform {
+  display: flex; align-items: center; gap: 2px;
+  width: 32px; height: 24px; justify-content: center;
+  flex-shrink: 0;
+  transition: opacity 0.15s ease;
+}
+.waveform.out { opacity: 0; }
+.bar { width: 4px; background: #1ed760; border-radius: 2px; transition: height 0.06s ease-out; }
+
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid #282828; border-top: 2px solid #1ed760;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+  position: absolute;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+.spinner.on { opacity: 1; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.checkmark-wrap {
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  position: absolute;
+  opacity: 0;
+  transform: scale(0) rotate(-90deg);
+  transition: opacity 0.2s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.checkmark-wrap.on { opacity: 1; transform: scale(1) rotate(0deg); }
+.checkmark-svg { width: 18px; height: 18px; }
+.checkmark-path { stroke-dasharray: 30; stroke-dashoffset: 30; }
+.checkmark-path.draw { animation: drawCheck 0.3s 0.08s ease-out forwards; }
+@keyframes drawCheck { to { stroke-dashoffset: 0; } }
+
+.divider {
+  width: 1px; height: 18px; background: rgba(29,217,96,0.12);
+  flex-shrink: 0;
+  transition: opacity 0.1s ease;
+}
+.divider.out { opacity: 0; }
+
+.timer {
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+  transition: opacity 0.1s ease;
+}
+.timer.out { opacity: 0; }
+.rec-dot {
+  width: 6px; height: 6px; background: #f3727f; border-radius: 50%;
+  box-shadow: 0 0 4px rgba(243,114,127,0.5);
+  animation: blink 1s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.time-text {
+  color: #fff; font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5px; font-weight: 500;
+}
+
+.error-wrap {
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; position: absolute;
+  opacity: 0; transition: opacity 0.2s ease;
+}
+.error-wrap.on { opacity: 1; }
+.error-svg { width: 18px; height: 18px; }
+
+.flash-ring {
+  position: absolute; width: 34px; height: 34px;
+  border-radius: 50%; border: 2px solid #1ed760;
+  opacity: 0; pointer-events: none;
+}
+.flash-ring.pop { animation: flashPop 0.6s ease-out forwards; }
+@keyframes flashPop {
+  0% { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* Position mode */
+.capsule.position-mode .waveform,
+.capsule.position-mode .divider,
+.capsule.position-mode .timer,
+.capsule.position-mode .spinner,
+.capsule.position-mode .checkmark-wrap,
+.capsule.position-mode .error-wrap,
+.capsule.position-mode .flash-ring {
+  display: none !important;
+}
+.capsule.position-mode {
+  display: flex !important;
+  border: 1.5px dashed rgba(29,217,96,0.45) !important;
+  cursor: grab;
+  background: rgba(24,24,24,0.92) !important;
+  user-select: none;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.capsule.position-mode:active { cursor: grabbing; }
+.pos-hint {
+  display: none; color: rgba(29,217,96,0.7); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.3px; user-select: none;
+}
+.pos-confirm {
+  display: none; background: #1ed760; color: #000; border: none;
+  border-radius: 6px; padding: 2px 10px; font-size: 11px;
+  font-weight: 600; cursor: pointer; flex-shrink: 0;
+}
+.pos-confirm:hover { background: #1aec6a; }
+.capsule.position-mode .pos-hint { display: block; }
+.capsule.position-mode .pos-confirm { display: block; }
+
+/* LLM processing animation — same size as recording capsule (34x34 circle) */
+.capsule.thinking {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 17px !important;
+  padding: 0 !important;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(29,217,96,0.2);
+  box-shadow: 0 0 12px rgba(29,217,96,0.15);
+  animation: thinkBreathe 2s ease-in-out infinite;
+}
+.capsule.thinking::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -60%;
+  width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(29,217,96,0.15), transparent);
+  animation: sweepBar 1.8s ease-in-out infinite;
+}
+@keyframes sweepBar {
+  0% { left: -60%; }
+  100% { left: 100%; }
+}
+@keyframes thinkBreathe {
+  0%, 100% { box-shadow: 0 0 8px rgba(29,217,96,0.1); }
+  50% { box-shadow: 0 0 16px rgba(29,217,96,0.25); }
+}
+.thinking-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+.thinking-dots {
+  display: flex;
+  gap: 3px;
+}
+.thinking-dots span {
+  width: 4px; height: 4px;
+  background: #1ed760;
+  border-radius: 50%;
+  animation: thinkDot 1.4s ease-in-out infinite;
+}
+.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes thinkDot {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.3); }
+}
+
+/* Mode selection popup */
+.mode-popup {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 18px;
+  animation: fadeIn 0.2s ease-out;
+  width: 100%;
+  height: 100%;
+  background: rgba(24,24,24,0.82);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.mode-popup.visible { display: flex; }
+
+.asr-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.asr-label {
+  color: #8e8e93;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+.asr-text {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 8px 16px;
+  max-width: 340px;
+  color: #e5e5e5;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pill-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 9999px;
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.pill-btn:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.16); }
+.pill-btn.selected {
+  background: rgba(29,217,96,0.1);
+  border: 1px solid rgba(29,217,96,0.5);
+}
+.pill-name {
+  color: #d1d1d1;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.pill-btn.selected .pill-name { color: #fff; font-weight: 600; }
+
+.more-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.more-btn:hover { background: rgba(255,255,255,0.12); }
+.more-dots { color: #b3b3b3; font-size: 16px; font-weight: 700; letter-spacing: 1px; }
+
+.popup-hints {
+  display: flex;
+  gap: 16px;
+}
+.hint-text { color: #6e6e6e; font-size: 10px; }
+
+/* More panel */
+.more-panel {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(24,24,24,0.82);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-radius: 14px;
+  padding: 12px;
+  min-width: 220px;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  animation: fadeIn 0.15s ease-out;
+  width: 100%;
+  height: 100%;
+}
+.more-panel.visible { display: flex; }
+.more-title {
+  color: #8e8e93;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  padding: 0 8px 8px;
+}
+.more-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.more-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.1s;
+  user-select: none;
+}
+.more-item:hover,
+.more-item.selected {
+  background: rgba(29,217,96,0.08);
+}
+.more-item-name {
+  color: #d1d1d1;
+  font-size: 13px;
+  font-weight: 500;
+  flex: 1;
+}
+.more-item.selected .more-item-name { color: #fff; }
+.more-item-key {
+  color: #535353;
+  font-size: 10px;
+}
+.more-item.selected .more-item-key { color: #1ed760; }
+.more-footer {
+  display: flex;
+  gap: 12px;
+  padding: 8px 8px 0;
+  margin-top: 4px;
+  border-top: 1px solid #282828;
+}
+.more-footer .hint-text { font-size: 10px; color: #535353; }
+
+.llm-text {
+  color: #b3b3b3;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>
+</head>
+<body>
+
+<div class="capsule-wrapper">
+  <div class="capsule" id="capsule">
+    <div class="waveform" id="waveform">
+      <div class="bar" id="b0" style="height:25%"></div>
+      <div class="bar" id="b1" style="height:45%"></div>
+      <div class="bar" id="b2" style="height:60%"></div>
+      <div class="bar" id="b3" style="height:35%"></div>
+      <div class="bar" id="b4" style="height:20%"></div>
+    </div>
+    <div class="divider" id="divider"></div>
+    <div class="timer" id="timer">
+      <div class="rec-dot"></div>
+      <span class="time-text" id="timeText">0:00</span>
+    </div>
+    <div class="spinner" id="spinner"></div>
+    <div class="checkmark-wrap" id="checkmark">
+      <svg class="checkmark-svg" viewBox="0 0 24 24" fill="none" stroke="#1ed760" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+        <polyline class="checkmark-path" id="checkPath" points="20 6 9 17 4 12"></polyline>
+      </svg>
+    </div>
+    <div class="error-wrap" id="errorWrap">
+      <svg class="error-svg" viewBox="0 0 24 24" fill="none" stroke="#f3727f" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </div>
+    <div class="flash-ring" id="flash"></div>
+    <span class="pos-hint" id="posHint">拖拽移动</span>
+    <button class="pos-confirm" id="posConfirm" onclick="confirmPosition()">确认</button>
+  </div>
+  <div id="modePopup" class="mode-popup">
+    <div class="asr-preview">
+      <span class="asr-label">识别结果</span>
+      <div class="asr-text" id="asrText"></div>
+    </div>
+    <div class="pill-row" id="pillRow"></div>
+    <div class="popup-hints" id="popupHints">
+      <span class="hint-text">点击选择模式</span>
+      <span class="hint-text">ESC 取消</span>
+    </div>
+  </div>
+  <div id="morePanel" class="more-panel">
+    <div class="more-title">选择模式</div>
+    <div class="more-list" id="moreList"></div>
+    <div class="more-footer">
+      <span class="hint-text">点击选择模式</span>
+      <span class="hint-text">ESC 返回</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const W = [0.5, 0.8, 1.0, 0.75, 0.55];
+const ATK = 0.4, REL = 0.15;
+let sm = [0,0,0,0,0], barIv = null, timerIv = null, timerSec = 0;
+let animGen = 0;
+let activeMorph = null;  // track morph animation to cancel on reset
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// --- Tauri IPC ---
+function invoke(cmd, args) {
+  if (!window.__TAURI__) throw new Error('Tauri not ready');
+  return window.__TAURI__.core.invoke(cmd, args);
+}
+
+let pollIv = null;
+let jsReady = false;
+let suppressPollingUntil = 0;
+
+function startPolling() {
+  pollIv = setInterval(async () => {
+    try {
+      // Skip polling if suppressed (e.g., showing warning)
+      if (Date.now() < suppressPollingUntil) return;
+
+      const state = await invoke('get_capsule_state');
+      if (!jsReady) {
+        jsReady = true;
+        lastPhase = '__init__';
+      }
+      handleState(state);
+    } catch (e) {
+      // Tauri not ready yet
+    }
+  }, 50);
+}
+
+function stopPolling() {
+  if (pollIv) { clearInterval(pollIv); pollIv = null; }
+}
+
+let lastPhase = 'idle';
+
+function handleState(state) {
+  if (state.phase === lastPhase) {
+    if (state.phase === 'recording' && state.rms > 0) {
+      updateBars(state.rms);
+    }
+    return;
+  }
+  lastPhase = state.phase;
+
+  if (state.phase !== 'idle') {
+    invoke('show_capsule_window').then(() => {
+      runPhase(state);
+    });
+  } else {
+    runPhase(state);
+  }
+}
+
+function runPhase(state) {
+  animGen++;
+  switch (state.phase) {
+    case 'idle':
+      const c = $('capsule');
+      if (c.classList.contains('visible')) {
+        fullReset();
+      }
+      break;
+    case 'recording':
+      showRecording();
+      break;
+    case 'loading':
+      showLoading();
+      break;
+    case 'done':
+      showDone();
+      break;
+    case 'error':
+      showError(state.error || '未知错误');
+      break;
+    case 'warning':
+      showWarning(state.error || '未知问题');
+      break;
+    case 'llm_processing':
+      showLlmProcessing();
+      break;
+  }
+}
+
+// --- Animation phases ---
+
+function fullReset() {
+  clearInterval(barIv); clearInterval(timerIv);
+  barIv = null; timerIv = null;
+  if (activeMorph) { activeMorph.cancel(); activeMorph = null; }
+  modeSelectionActive = false;
+  morePanelActive = false;
+  llmActive = false;
+  modeList = [];
+  allModes = [];
+  selectedModeIdx = 0;
+  moreSelectedIdx = 0;
+  $('modePopup').classList.remove('visible');
+  $('pillRow').innerHTML = '';
+  $('asrText').textContent = '';
+  $('morePanel').classList.remove('visible');
+  $('moreList').innerHTML = '';
+  const c = $('capsule');
+  // Remove any dynamically added elements
+  c.querySelectorAll('.llm-text, .thinking-content, .warning-icon, .warning-text').forEach(el => el.remove());
+  c.getAnimations().forEach(a => a.cancel());
+  c.style.cssText = '';
+  $('waveform').className = 'waveform';
+  $('waveform').style.cssText = '';
+  $('divider').className = 'divider';
+  $('divider').style.cssText = '';
+  $('timer').className = 'timer';
+  $('timer').style.cssText = '';
+  $('spinner').className = 'spinner';
+  $('spinner').style.cssText = '';
+  $('checkmark').className = 'checkmark-wrap';
+  $('checkmark').style.cssText = '';
+  $('checkPath').classList.remove('draw');
+  $('errorWrap').className = 'error-wrap';
+  $('errorWrap').style.cssText = '';
+  $('flash').className = 'flash-ring';
+  $('flash').style.cssText = '';
+  c.className = 'capsule';
+  void c.offsetHeight;
+  sm = [0,0,0,0,0];
+  for (let i = 0; i < 5; i++) $('b'+i).style.height = '20%';
+  $('timeText').textContent = '0:00';
+  timerSec = 0;
+}
+
+function updateBars(rms) {
+  for (let i = 0; i < 5; i++) {
+    const raw = rms * W[i] + (Math.random() - 0.5) * 0.08;
+    sm[i] += (raw - sm[i]) * (raw > sm[i] ? ATK : REL);
+    $('b'+i).style.height = Math.max(8, sm[i] * 100) + '%';
+  }
+}
+
+function startBars() {
+  barIv = setInterval(() => {
+    const fake = Math.random() * 0.6 + 0.2;
+    updateBars(fake);
+  }, 50);
+}
+
+function startClock() {
+  timerSec = 0;
+  timerIv = setInterval(() => {
+    timerSec++;
+    $('timeText').textContent = Math.floor(timerSec/60) + ':' + String(timerSec%60).padStart(2, '0');
+  }, 1000);
+}
+
+async function showRecording() {
+  fullReset();
+  const c = $('capsule');
+  c.className = 'capsule visible';
+  void c.offsetWidth;
+  c.animate([
+    { opacity: 0, transform: 'translateY(16px) scale(0.92)' },
+    { opacity: 1, transform: 'translateY(0) scale(1)' }
+  ], { duration: 400, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)', fill: 'none' });
+  startBars();
+  startClock();
+}
+
+async function showLoading() {
+  const gen = animGen;
+  clearInterval(barIv); barIv = null;
+  clearInterval(timerIv); timerIv = null;
+
+  const c = $('capsule');
+  if (!c.classList.contains('visible')) {
+    c.className = 'capsule visible';
+    c.offsetHeight;
+  }
+
+  $('waveform').classList.add('out');
+  $('divider').classList.add('out');
+  $('timer').classList.add('out');
+
+  const w = c.offsetWidth;
+  const morph = c.animate([
+    { width: w + 'px', height: '40px', borderRadius: '20px', padding: '0 16px' },
+    { width: (w * 0.65) + 'px', height: '40px', borderRadius: '20px', padding: '0 10px', offset: 0.25 },
+    { width: '36px', height: '36px', borderRadius: '18px', padding: '0 2px', offset: 0.6 },
+    { width: '34px', height: '34px', borderRadius: '17px', padding: '0' }
+  ], {
+    duration: 380,
+    easing: 'cubic-bezier(0.4, 0, 0.1, 1)',
+    fill: 'forwards',
+  });
+  activeMorph = morph;
+
+  await sleep(100);
+  if (animGen !== gen) return;
+  $('spinner').classList.add('on');
+  await morph.finished.catch(() => {});
+  if (animGen !== gen) return;
+
+  c.style.width = '34px';
+  c.style.height = '34px';
+  c.style.borderRadius = '17px';
+  c.style.padding = '0';
+}
+
+async function showDone() {
+  const gen = animGen;
+  const c = $('capsule');
+  if (!c.classList.contains('visible')) {
+    c.className = 'capsule visible';
+    c.offsetHeight;
+  }
+
+  // Cancel any lingering morph/loading animations
+  c.getAnimations().forEach(a => a.cancel());
+  if (activeMorph) { activeMorph.cancel(); activeMorph = null; }
+
+  // Clean up LLM processing state before showing checkmark
+  c.classList.remove('thinking');
+  c.querySelectorAll('.llm-text, .thinking-content, .warning-icon, .warning-text').forEach(el => el.remove());
+  c.style.width = '34px';
+  c.style.height = '34px';
+  c.style.borderRadius = '17px';
+  c.style.padding = '0';
+
+  $('spinner').classList.remove('on');
+
+  await sleep(80);
+  if (animGen !== gen) return;
+
+  $('checkmark').classList.add('on');
+  $('checkPath').classList.add('draw');
+  $('flash').classList.add('pop');
+
+  c.style.boxShadow = 'rgba(0,0,0,0.5) 0px 4px 16px, 0 0 28px rgba(29,217,96,0.2)';
+
+  // Expand window for glow effect
+  invoke('resize_capsule_window', { width: 60.0, height: 60.0 }).catch(() => {});
+
+  c.animate([
+    { transform: 'scale(1)' },
+    { transform: 'scale(1.3)' },
+    { transform: 'scale(0.9)' },
+    { transform: 'scale(1.05)' },
+    { transform: 'scale(1)' }
+  ], { duration: 300, easing: 'ease-out' });
+
+  await sleep(300);
+  if (animGen !== gen) return;
+
+  const fade = c.animate([
+    { opacity: 1, transform: 'scale(1)' },
+    { opacity: 0, transform: 'scale(0.5)' }
+  ], { duration: 150, easing: 'ease-in', fill: 'forwards' });
+  await fade.finished.catch(() => {});
+  if (animGen !== gen) { fade.cancel(); return; }
+
+  fullReset();
+  invoke('close_capsule_window_cmd').catch(() => {});
+}
+
+async function showError(msg) {
+  const gen = animGen;
+  const c = $('capsule');
+  if (!c.classList.contains('visible')) {
+    c.className = 'capsule visible';
+    c.offsetHeight;
+    c.style.width = '34px';
+    c.style.height = '34px';
+    c.style.borderRadius = '17px';
+    c.style.padding = '0';
+  }
+
+  // Cancel any lingering morph/loading animations
+  c.getAnimations().forEach(a => a.cancel());
+  if (activeMorph) { activeMorph.cancel(); activeMorph = null; }
+
+  clearInterval(barIv); barIv = null;
+  clearInterval(timerIv); timerIv = null;
+
+  $('waveform').classList.add('out');
+  $('divider').classList.add('out');
+  $('timer').classList.add('out');
+  $('spinner').classList.remove('on');
+
+  if (c.offsetWidth > 50) {
+    const w = c.offsetWidth;
+    const morph = c.animate([
+      { width: w + 'px', height: '40px', borderRadius: '20px', padding: '0 16px' },
+      { width: '34px', height: '34px', borderRadius: '17px', padding: '0' }
+    ], { duration: 300, easing: 'cubic-bezier(0.4, 0, 0.1, 1)', fill: 'forwards' });
+    activeMorph = morph;
+    await morph.finished.catch(() => {});
+    if (animGen !== gen) return;
+    c.style.width = '44px';
+    c.style.height = '44px';
+    c.style.borderRadius = '22px';
+    c.style.padding = '0';
+  }
+
+  $('errorWrap').classList.add('on');
+
+  // Shake animation (like input error)
+  c.animate([
+    { transform: 'translateX(0)', offset: 0 },
+    { transform: 'translateX(-4px)', offset: 0.15 },
+    { transform: 'translateX(4px)', offset: 0.3 },
+    { transform: 'translateX(-3px)', offset: 0.45 },
+    { transform: 'translateX(3px)', offset: 0.6 },
+    { transform: 'translateX(-1px)', offset: 0.75 },
+    { transform: 'translateX(0)', offset: 1 },
+  ], { duration: 400, easing: 'ease-in-out' });
+
+  await sleep(1500);
+  if (animGen !== gen) return;
+
+  const fade = c.animate([
+    { opacity: 1, transform: 'scale(1)' },
+    { opacity: 0, transform: 'scale(0.5)' }
+  ], { duration: 300, easing: 'ease-in', fill: 'forwards' });
+  await fade.finished.catch(() => {});
+  if (animGen !== gen) { fade.cancel(); return; }
+
+  fullReset();
+  invoke('close_capsule_window_cmd').catch(() => {});
+}
+
+// --- Warning (backend unavailable) ---
+
+async function showWarning(msg) {
+  const gen = animGen;
+  const c = $('capsule');
+  if (!c.classList.contains('visible')) {
+    c.className = 'capsule visible';
+    c.offsetHeight;
+  }
+
+  clearInterval(barIv); barIv = null;
+  clearInterval(timerIv); timerIv = null;
+
+  $('waveform').style.display = 'none';
+  $('divider').style.display = 'none';
+  $('timer').style.display = 'none';
+  $('spinner').classList.remove('on');
+
+  // Show warning icon + text
+  c.style.width = 'auto';
+  c.style.height = '40px';
+  c.style.borderRadius = '20px';
+  c.style.padding = '0 16px';
+  c.style.border = '1px solid rgba(243,114,127,0.25)';
+
+  // Add warning icon
+  if (!c.querySelector('.warning-icon')) {
+    const icon = document.createElement('span');
+    icon.className = 'warning-icon';
+    icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f3727f" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+    icon.style.display = 'flex';
+    icon.style.alignItems = 'center';
+    c.insertBefore(icon, c.firstChild);
+  }
+
+  // Add warning text
+  if (!c.querySelector('.warning-text')) {
+    const text = document.createElement('span');
+    text.className = 'warning-text';
+    text.textContent = msg;
+    text.style.color = '#f3727f';
+    text.style.fontSize = '12px';
+    text.style.fontWeight = '500';
+    text.style.whiteSpace = 'nowrap';
+    c.appendChild(text);
+  }
+
+  invoke('resize_capsule_window', { width: 200.0, height: 40.0 }).catch(() => {});
+
+  // Slide up with bounce
+  c.animate([
+    { opacity: 0, transform: 'translateY(12px)', offset: 0 },
+    { opacity: 1, transform: 'translateY(-3px)', offset: 0.5 },
+    { opacity: 1, transform: 'translateY(0)', offset: 1 },
+  ], { duration: 350, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)', fill: 'forwards' });
+
+  // Auto-close after 2 seconds (handled by backend, but also here as safety)
+  await sleep(2000);
+  if (animGen !== gen) return;
+
+  const fade = c.animate([
+    { opacity: 1, transform: 'scale(1)' },
+    { opacity: 0, transform: 'scale(0.8)' }
+  ], { duration: 200, easing: 'ease-in', fill: 'forwards' });
+  await fade.finished.catch(() => {});
+  if (animGen !== gen) { fade.cancel(); return; }
+
+  // Clean up warning elements
+  c.querySelectorAll('.warning-icon, .warning-text').forEach(el => el.remove());
+  c.style.border = '';
+  fullReset();
+  invoke('close_capsule_window_cmd').catch(() => {});
+}
+
+// --- Mode selection ---
+
+let modeSelectionActive = false;
+let morePanelActive = false;
+let modeList = [];      // modes shown in pills (max 3)
+let allModes = [];      // all AI modes for "more" panel
+let selectedModeIdx = 0;
+let moreSelectedIdx = 0;
+
+function listenModeSelection() {
+  if (!window.__TAURI__ || !window.__TAURI__.event) return;
+  window.__TAURI__.event.listen('mode-selection', (event) => {
+    const { text, modes } = event.payload;
+    showModeSelection(modes, text);
+  }).catch(e => console.error('listen mode-selection failed:', e));
+}
+
+function showModeSelection(modes, text) {
+  modeSelectionActive = true;
+  selectedModeIdx = 0;
+  morePanelActive = false;
+
+  // Sort all modes by popup_order first, then separate popup vs "more"
+  const aiModes = modes.filter(m => m.id !== 'direct');
+  aiModes.sort((a, b) => (a.popup_order || 999) - (b.popup_order || 999));
+  const popupModes = aiModes.filter(m => m.show_in_popup).slice(0, 3);
+  allModes = aiModes;
+  modeList = popupModes.length > 0 ? popupModes : allModes.slice(0, 3);
+
+  const c = $('capsule');
+
+  // Cancel any lingering animations (e.g. from loading phase)
+  c.getAnimations().forEach(a => a.cancel());
+  if (activeMorph) { activeMorph.cancel(); activeMorph = null; }
+
+  // Restore capsule to normal size
+  c.style.width = 'auto';
+  c.style.height = 'auto';
+  c.style.borderRadius = '20px';
+  c.style.padding = '0 16px';
+  c.style.border = '';
+
+  // Hide waveform, divider, timer
+  $('waveform').style.display = 'none';
+  $('divider').style.display = 'none';
+  $('timer').style.display = 'none';
+  $('spinner').classList.remove('on');
+
+  // Set ASR text preview
+  $('asrText').textContent = text;
+
+  // Build pill buttons
+  const pillRow = $('pillRow');
+  pillRow.innerHTML = '';
+  modeList.forEach((m, i) => {
+    const pill = document.createElement('div');
+    pill.className = 'pill-btn' + (i === 0 ? ' selected' : '');
+    pill.innerHTML =
+      '<span class="pill-name">' + m.name + '</span>';
+    pill.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      selectedModeIdx = i;
+      confirmModeSelection();
+    });
+    pill.addEventListener('mouseenter', () => selectPill(i));
+    pillRow.appendChild(pill);
+  });
+
+  // Add "more" button if there are more modes than shown in pills
+  const hasMore = allModes.length > modeList.length;
+  if (hasMore) {
+    const moreBtn = document.createElement('div');
+    moreBtn.className = 'more-btn';
+    moreBtn.innerHTML = '<span class="more-dots">···</span>';
+    moreBtn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      showMorePanel();
+    });
+    pillRow.appendChild(moreBtn);
+  }
+
+  // Resize window first, then show popup (avoids positioning race)
+  invoke('resize_capsule_window', { width: 420.0, height: 130.0, follow_capsule: true }).then(() => {
+    $('modePopup').classList.add('visible');
+  }).catch(() => {
+    $('modePopup').classList.add('visible');
+  });
+
+}
+
+function showMorePanel() {
+  morePanelActive = true;
+  moreSelectedIdx = 0;
+
+  // Build more list
+  const list = $('moreList');
+  list.innerHTML = '';
+  allModes.forEach((m, i) => {
+    const item = document.createElement('div');
+    item.className = 'more-item' + (i === 0 ? ' selected' : '');
+    item.innerHTML =
+      '<span class="more-item-name">' + m.name + '</span>' +
+      '<span class="more-item-key">' + (i + 1) + '</span>';
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      moreSelectedIdx = i;
+      confirmMoreSelection();
+    });
+    item.addEventListener('mouseenter', () => selectMoreItem(i));
+    list.appendChild(item);
+  });
+
+  // Hide pill popup, resize, then show more panel
+  $('modePopup').classList.remove('visible');
+  invoke('resize_capsule_window', { width: 280.0, height: 200.0, follow_capsule: true }).then(() => {
+    $('morePanel').classList.add('visible');
+  }).catch(() => {
+    $('morePanel').classList.add('visible');
+  });
+}
+
+function hideMorePanel() {
+  morePanelActive = false;
+  $('morePanel').classList.remove('visible');
+  $('moreList').innerHTML = '';
+
+  // Resize first, then restore pill popup
+  invoke('resize_capsule_window', { width: 420.0, height: 130.0, follow_capsule: true }).then(() => {
+    $('modePopup').classList.add('visible');
+  }).catch(() => {
+    $('modePopup').classList.add('visible');
+  });
+}
+
+function hideModeSelection() {
+  modeSelectionActive = false;
+  morePanelActive = false;
+  $('modePopup').classList.remove('visible');
+  $('pillRow').innerHTML = '';
+  $('asrText').textContent = '';
+  $('morePanel').classList.remove('visible');
+  $('moreList').innerHTML = '';
+  // Restore waveform, divider, timer
+  $('waveform').style.display = '';
+  $('divider').style.display = '';
+  $('timer').style.display = '';
+
+  // Resize window back to normal
+  invoke('resize_capsule_window', { width: 150.0, height: 40.0 }).catch(() => {});
+}
+
+function selectPill(idx) {
+  selectedModeIdx = idx;
+  const pills = $('pillRow').querySelectorAll('.pill-btn');
+  pills.forEach((el, i) => {
+    el.classList.toggle('selected', i === idx);
+  });
+}
+
+function selectMoreItem(idx) {
+  moreSelectedIdx = idx;
+  const items = $('moreList').querySelectorAll('.more-item');
+  items.forEach((el, i) => {
+    el.classList.toggle('selected', i === idx);
+  });
+}
+
+function confirmModeSelection() {
+  if (!modeSelectionActive || modeList.length === 0) return;
+  const mode = modeList[selectedModeIdx];
+  hideModeSelection();
+  invoke('select_processing_mode', { modeId: mode.id }).catch(e => {
+    console.error('select_processing_mode failed:', e);
+  });
+}
+
+function confirmMoreSelection() {
+  if (!morePanelActive || allModes.length === 0) return;
+  const mode = allModes[moreSelectedIdx];
+  hideModeSelection();
+  invoke('select_processing_mode', { modeId: mode.id }).catch(e => {
+    console.error('select_processing_mode (more) failed:', e);
+  });
+}
+
+// --- LLM processing phase ---
+
+let llmActive = false;
+
+async function showLlmProcessing() {
+  llmActive = true;
+  const gen = animGen;
+  const c = $('capsule');
+  if (!c.classList.contains('visible')) {
+    c.className = 'capsule visible';
+    c.offsetHeight;
+  }
+
+  clearInterval(barIv); barIv = null;
+  clearInterval(timerIv); timerIv = null;
+
+  c.getAnimations().forEach(a => a.cancel());
+  if (activeMorph) { activeMorph.cancel(); activeMorph = null; }
+
+  $('waveform').style.display = 'none';
+  $('divider').style.display = 'none';
+  $('timer').style.display = 'none';
+  $('spinner').classList.remove('on');
+
+  c.querySelectorAll('.llm-text, .warning-icon, .warning-text').forEach(el => el.remove());
+
+  // Morph to 34x34 (CSS transition handles smooth size change)
+  c.classList.add('morphing');
+  void c.offsetWidth;
+  c.style.width = '34px';
+  c.style.height = '34px';
+  c.style.borderRadius = '17px';
+  c.style.padding = '0';
+
+  // Single pulse animation: scale(1) → 0.88 → 1.06 → 1
+  c.animate([
+    { transform: 'scale(1)' },
+    { transform: 'scale(0.88)' },
+    { transform: 'scale(1.06)' },
+    { transform: 'scale(1)' },
+  ], { duration: 300, easing: 'ease-out' });
+
+  // Switch content at the dip point (~120ms)
+  await sleep(120);
+  if (animGen !== gen) return;
+
+  c.classList.add('thinking');
+  if (!c.querySelector('.thinking-content')) {
+    const content = document.createElement('div');
+    content.className = 'thinking-content';
+    content.innerHTML = '<div class="thinking-dots"><span></span><span></span><span></span></div>';
+    c.appendChild(content);
+  }
+
+  // Clean up morphing after transition completes
+  setTimeout(() => { c.classList.remove('morphing'); }, 260);
+
+  // Ensure window is large enough for glow effect
+  invoke('resize_capsule_window', { width: 34.0, height: 34.0 }).catch(() => {});
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  startPolling();
+  listenPositionMode();
+  listenCapsuleEvents();
+  listenModeSelection();
+});
+
+// --- Position mode ---
+let isPositionMode = false;
+
+function listenCapsuleEvents() {
+  if (!window.__TAURI__ || !window.__TAURI__.event) return;
+  window.__TAURI__.event.listen('capsule-state', (event) => {
+    const state = event.payload;
+
+    // Suppress polling when showing warning/error to prevent immediate reset
+    if (state.phase === 'warning' || state.phase === 'error') {
+      suppressPollingUntil = Date.now() + 2000;
+    }
+
+    if (state.phase !== lastPhase) {
+      lastPhase = state.phase;
+      runPhase(state);
+    }
+  });
+}
+
+function listenPositionMode() {
+  if (!window.__TAURI__ || !window.__TAURI__.event) return;
+  window.__TAURI__.event.listen('position-mode', (event) => {
+    isPositionMode = event.payload === true || event.payload === 1;
+    const c = $('capsule');
+    if (isPositionMode) {
+      stopPolling();
+      fullReset();
+      c.className = 'capsule visible position-mode';
+      c.setAttribute('data-tauri-drag-region', 'deep');
+    } else {
+      c.removeAttribute('data-tauri-drag-region');
+      c.classList.remove('position-mode');
+      fullReset();
+      startPolling();
+    }
+  }).catch(e => console.error('listen position-mode failed:', e));
+}
+
+// Drag is handled by setting data-tauri-drag-region="deep" on the capsule
+// when entering position mode (in listenPositionMode). The "deep" value makes
+// the entire subtree draggable. Tauri's drag.js detects this on mousedown.
+// <button> elements are automatically excluded from drag by Tauri.
+
+function confirmPosition() {
+  invoke('save_capsule_position').catch(e => console.error(e));
+}
+
+// Dev mode: manual trigger for testing outside Tauri
+if (!window.__TAURI__) {
+  document.addEventListener('keydown', async (e) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      await showRecording();
+      await sleep(2000);
+      await showLoading();
+      await sleep(1500);
+      await showDone();
+    }
+    if (e.code === 'KeyE') {
+      await showError('后端未连接');
+    }
+    if (e.code === 'KeyW') {
+      await showWarning('后端未连接');
+    }
+    if (e.code === 'KeyM') {
+      await showRecording();
+      await sleep(1000);
+      showModeSelection([
+        { id: 'polish', name: '文本润色', icon: '✨', system_prompt: '', user_template: '', show_in_popup: true, popup_order: 1 },
+        { id: 'translate_en', name: '翻译英文', icon: '🌐', system_prompt: '', user_template: '', show_in_popup: true, popup_order: 2 },
+        { id: 'summarize', name: '总结', icon: '📋', system_prompt: '', user_template: '', show_in_popup: false, popup_order: 3 },
+        { id: 'brainstorm', name: '头脑风暴', icon: '💡', system_prompt: '', user_template: '', show_in_popup: false, popup_order: 4 },
+      ], '这是一段测试语音文本，用于展示模式选择界面');
+    }
+  });
+}
+</script>
+</body>
+</html>

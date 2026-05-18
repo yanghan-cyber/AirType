@@ -26,7 +26,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         let (w, h) = img.dimensions();
         (img.into_raw(), w, h)
     };
-    let tray = TrayIconBuilder::new()
+    let tray = TrayIconBuilder::with_id("main")
         .icon(tauri::image::Image::new_owned(icon_rgba, icon_w, icon_h))
         .menu(&menu)
         .on_menu_event(move |app, event| {

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  background: transparent;
+  width: 100vw; height: 100vh;
+  overflow: hidden;
+  font-family: 'Segoe UI', -apple-system, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #181818;
+  border: 1px solid rgba(29,217,96,0.15);
+  border-radius: 8px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.hide { opacity: 0; transform: translateY(-4px); }
+.dot {
+  width: 6px; height: 6px;
+  background: #1ed760;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.text {
+  color: #fff; font-size: 12px;
+  font-weight: 500; white-space: nowrap;
+}
+</style>
+</head>
+<body>
+<div class="toast" id="toast">
+  <div class="dot"></div>
+  <span class="text" id="msg"></span>
+</div>
+<script>
+const message = decodeURIComponent(location.hash.slice(1)) || 'AirType 已启动';
+document.getElementById('msg').textContent = message;
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const toast = document.getElementById('toast');
+
+  // Fade in
+  await new Promise(r => requestAnimationFrame(r));
+  toast.classList.add('show');
+
+  // Hold
+  await new Promise(r => setTimeout(r, 2500));
+
+  // Fade out
+  toast.classList.remove('show');
+  toast.classList.add('hide');
+  await new Promise(r => setTimeout(r, 300));
+
+  // Close window
+  if (window.__TAURI__) {
+    window.__TAURI__.core.invoke('close_toast_window');
+  }
+});
+</script>
+</body>
+</html>

@@ -9,6 +9,7 @@ mod inject;
 mod llm;
 mod log;
 mod state;
+mod toast;
 mod tray;
 mod util;
 
@@ -93,6 +94,7 @@ fn main() {
             commands::save_secondary_hotkey,
             commands::select_processing_mode,
             commands::cancel_llm_processing,
+            toast::close_toast_window,
         ])
         .setup(move |app| {
             // Hidden main window to keep app alive when capsule closes
@@ -109,6 +111,13 @@ fn main() {
             }
             tray::setup_tray(app.handle())?;
             open_capsule_window(app.handle());
+
+            // Show startup toast after short delay (tray icon needs time to initialize)
+            let toast_app = app.handle().clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                toast::show_toast(&toast_app, "AirType 已启动");
+            });
 
             let audio_stream: Arc<AudioStreamHolder> = Arc::new(AudioStreamHolder(Mutex::new(None)));
             let pipeline = Arc::new(Mutex::new(PipelineCtx {

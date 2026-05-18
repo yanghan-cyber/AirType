@@ -452,6 +452,17 @@ let activeMorph = null;  // track morph animation to cancel on reset
 const $ = id => document.getElementById(id);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// Capture current visual state to inline styles, then cancel animations without visual snap
+function captureAndCancel(el) {
+  const cs = getComputedStyle(el);
+  el.style.width = cs.width;
+  el.style.height = cs.height;
+  el.style.borderRadius = cs.borderRadius;
+  el.style.padding = cs.padding;
+  el.getAnimations().forEach(a => a.cancel());
+  if (activeMorph) { activeMorph.cancel(); activeMorph = null; }
+}
+
 // --- Tauri IPC ---
 function invoke(cmd, args) {
   if (!window.__TAURI__) throw new Error('Tauri not ready');
@@ -664,13 +675,16 @@ async function showDone() {
     c.offsetHeight;
   }
 
-  // Cancel any lingering morph/loading animations
-  c.getAnimations().forEach(a => a.cancel());
-  if (activeMorph) { activeMorph.cancel(); activeMorph = null; }
-
-  // Clean up LLM processing state before showing checkmark
+  // Clean up LLM processing state
   c.classList.remove('thinking');
   c.querySelectorAll('.llm-text, .thinking-content, .warning-icon, .warning-text').forEach(el => el.remove());
+
+  // Capture current visual state BEFORE cancelling animations to prevent snap
+  captureAndCancel(c);
+
+  // Smooth morph to 34x34 via CSS transition
+  c.classList.add('morphing');
+  void c.offsetWidth;
   c.style.width = '34px';
   c.style.height = '34px';
   c.style.borderRadius = '17px';
@@ -678,7 +692,13 @@ async function showDone() {
 
   $('spinner').classList.remove('on');
 
-  await sleep(80);
+  await sleep(260);
+  if (animGen !== gen) return;
+  c.classList.remove('morphing');
+
+  // Resize window BEFORE showing checkmark to avoid position shift
+  invoke('resize_capsule_window', { width: 60.0, height: 60.0 }).catch(() => {});
+  await sleep(50);
   if (animGen !== gen) return;
 
   $('checkmark').classList.add('on');
@@ -687,18 +707,16 @@ async function showDone() {
 
   c.style.boxShadow = 'rgba(0,0,0,0.5) 0px 4px 16px, 0 0 28px rgba(29,217,96,0.2)';
 
-  // Expand window for glow effect
-  invoke('resize_capsule_window', { width: 60.0, height: 60.0 }).catch(() => {});
-
+  // Gentle celebration bounce (reduced intensity)
   c.animate([
     { transform: 'scale(1)' },
-    { transform: 'scale(1.3)' },
-    { transform: 'scale(0.9)' },
-    { transform: 'scale(1.05)' },
+    { transform: 'scale(1.18)' },
+    { transform: 'scale(0.94)' },
+    { transform: 'scale(1.04)' },
     { transform: 'scale(1)' }
-  ], { duration: 300, easing: 'ease-out' });
+  ], { duration: 380, easing: 'ease-out' });
 
-  await sleep(300);
+  await sleep(400);
   if (animGen !== gen) return;
 
   const fade = c.animate([
@@ -724,10 +742,6 @@ async function showError(msg) {
     c.style.padding = '0';
   }
 
-  // Cancel any lingering morph/loading animations
-  c.getAnimations().forEach(a => a.cancel());
-  if (activeMorph) { activeMorph.cancel(); activeMorph = null; }
-
   clearInterval(barIv); barIv = null;
   clearInterval(timerIv); timerIv = null;
 
@@ -736,20 +750,20 @@ async function showError(msg) {
   $('timer').classList.add('out');
   $('spinner').classList.remove('on');
 
-  if (c.offsetWidth > 50) {
-    const w = c.offsetWidth;
-    const morph = c.animate([
-      { width: w + 'px', height: '40px', borderRadius: '20px', padding: '0 16px' },
-      { width: '34px', height: '34px', borderRadius: '17px', padding: '0' }
-    ], { duration: 300, easing: 'cubic-bezier(0.4, 0, 0.1, 1)', fill: 'forwards' });
-    activeMorph = morph;
-    await morph.finished.catch(() => {});
-    if (animGen !== gen) return;
-    c.style.width = '44px';
-    c.style.height = '44px';
-    c.style.borderRadius = '22px';
-    c.style.padding = '0';
-  }
+  // Capture current visual state BEFORE cancelling animations to prevent snap
+  captureAndCancel(c);
+
+  // Smooth morph to error size via CSS transition
+  c.classList.add('morphing');
+  void c.offsetWidth;
+  c.style.width = '44px';
+  c.style.height = '44px';
+  c.style.borderRadius = '22px';
+  c.style.padding = '0';
+
+  await sleep(260);
+  if (animGen !== gen) return;
+  c.classList.remove('morphing');
 
   $('errorWrap').classList.add('on');
 
@@ -1053,8 +1067,8 @@ async function showLlmProcessing() {
   clearInterval(barIv); barIv = null;
   clearInterval(timerIv); timerIv = null;
 
-  c.getAnimations().forEach(a => a.cancel());
-  if (activeMorph) { activeMorph.cancel(); activeMorph = null; }
+  // Capture current visual state BEFORE cancelling animations to prevent snap
+  captureAndCancel(c);
 
   $('waveform').style.display = 'none';
   $('divider').style.display = 'none';
